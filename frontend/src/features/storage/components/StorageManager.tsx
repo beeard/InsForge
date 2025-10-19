@@ -44,7 +44,7 @@ export function StorageManager({
     setCurrentPage(1);
   }, [searchQuery, bucketName]);
 
-  const { useListObjects, deleteObject, downloadObject } = useStorage();
+  const { useListObjects, deleteObjects, downloadObject } = useStorage();
 
   // Fetch objects in selected bucket
   const {
@@ -143,10 +143,10 @@ export function StorageManager({
       const shouldDelete = await confirm(confirmOptions);
 
       if (shouldDelete) {
-        deleteObject({ bucket: bucketName, key: file.key });
+        deleteObjects({ bucket: bucketName, keys: [file.key] });
       }
     },
-    [bucketName, confirm, deleteObject]
+    [bucketName, confirm, deleteObjects]
   );
 
   const isDownloading = useCallback(
