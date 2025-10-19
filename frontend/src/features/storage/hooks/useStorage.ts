@@ -103,11 +103,30 @@ export function useStorage() {
 
   // Mutation to delete an object
   const deleteObjectMutation = useMutation({
-    mutationFn: ({ bucket, key }: { bucket: string; key: string }) =>
-      storageService.deleteObject(bucket, key),
-    onSuccess: () => {
+    mutationFn: ({ bucket, keys }: { bucket: string; keys: string[] }) =>
+      storageService.deleteObjects(bucket, keys),
+    onSuccess: (result) => {
+      const { success, failures } = result;
+      const successCount = success.length;
+      const failureCount = failures.length;
+      if (failureCount > 0 && successCount > 0) {
+        showToast(
+          `${successCount} ${successCount > 1 ? 'files' : 'file'} deleted, ${failureCount} ${failureCount > 1 ? 'files' : 'file'} failed to delete.`,
+          'warn'
+        );
+      } else if (failureCount > 0) {
+        showToast(
+          `${successCount} ${successCount > 1 ? 'files' : 'file'} deleted, ${failureCount} ${failureCount > 1 ? 'files' : 'file'} failed to delete.`,
+          'error'
+        );
+      } else if (successCount > 0) {
+        showToast(
+          `${successCount} ${successCount > 1 ? 'files' : 'file'} deleted successfully.`,
+          'success'
+        );
+      }
+
       void queryClient.invalidateQueries({ queryKey: ['storage'] });
-      showToast('File deleted successfully', 'success');
     },
     onError: (error: Error) => {
       const errorMessage = error instanceof Error ? error.message : 'Failed to delete file';
@@ -174,7 +193,7 @@ export function useStorage() {
 
     // Actions
     uploadObject: uploadObjectMutation.mutateAsync,
-    deleteObject: deleteObjectMutation.mutate,
+    deleteObjects: deleteObjectMutation.mutate,
     createBucket: createBucketMutation.mutateAsync,
     deleteBucket: deleteBucketMutation.mutateAsync,
     editBucket: editBucketMutation.mutateAsync,

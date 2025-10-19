@@ -116,6 +116,27 @@ export const storageService = {
     );
   },
 
+  async deleteObjects(
+    bucketName: string,
+    objectKeys: string[]
+  ): Promise<{ success: string[]; failures: { key: string; error: Error }[] }> {
+    const results = await Promise.allSettled(
+      objectKeys.map((key) => this.deleteObject(bucketName, key))
+    );
+    const success: string[] = [];
+    const failures: { key: string; error: Error }[] = [];
+
+    results.forEach((result, index) => {
+      if (result.status === 'fulfilled') {
+        success.push(objectKeys[index]);
+      } else {
+        failures.push({ key: objectKeys[index], error: result.reason as Error });
+      }
+    });
+
+    return { success, failures };
+  },
+
   // Create a new bucket
   async createBucket(bucketName: string, isPublic: boolean = true): Promise<void> {
     await apiClient.request('/storage/buckets', {
