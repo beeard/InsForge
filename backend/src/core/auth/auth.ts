@@ -1347,7 +1347,7 @@ export class AuthService {
    */
   async handleOAuthCallback(
     provider: OAuthProvidersSchema,
-    payload: { code?: string; token?: string; [key: string]: any }
+    payload: { code?: string; token?: string; [key: string]: unknown }
   ): Promise<CreateSessionResponse> {
     switch (provider) {
       case 'google':
