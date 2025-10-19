@@ -137,12 +137,8 @@ export default function StoragePage() {
     });
 
     if (shouldDelete) {
-      try {
-        deleteObjects({ bucket: selectedBucket, keys: fileKeys });
-        setSelectedFiles(new Set());
-      } catch {
-        showToast('Failed to delete some files', 'error');
-      }
+      deleteObjects({ bucket: selectedBucket, keys: fileKeys });
+      setSelectedFiles(new Set());
     }
   };
 

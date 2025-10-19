@@ -116,7 +116,7 @@ export function useStorage() {
         );
       } else if (failureCount > 0) {
         showToast(
-          `${successCount} ${successCount > 1 ? 'files' : 'file'} deleted, ${failureCount} ${failureCount > 1 ? 'files' : 'file'} failed to delete.`,
+          `Failed to delete ${failureCount} ${failureCount > 1 ? 'files' : 'file'}`,
           'error'
         );
       } else if (successCount > 0) {
