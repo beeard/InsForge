@@ -38,7 +38,7 @@ export const OAuthTestPanel: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
   const generateRandomState = () => {
-    const randomState = `test-state-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const randomState = `test-state-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
     setState(randomState);
   };
 

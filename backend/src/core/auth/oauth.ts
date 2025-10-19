@@ -55,11 +55,14 @@ export class OAuthConfigService {
     try {
       const result = await client.query(
         `SELECT
+          id,
           provider,
           client_id as "clientId",
           redirect_uri as "redirectUri",
           scopes,
-          use_shared_key as "useSharedKey"
+          use_shared_key as "useSharedKey",
+          created_at as "createdAt",
+          updated_at as "updatedAt"
          FROM _oauth_configs
          ORDER BY provider ASC`
       );
@@ -81,11 +84,14 @@ export class OAuthConfigService {
     try {
       const result = await client.query(
         `SELECT
+          id,
           provider,
           client_id as "clientId",
           redirect_uri as "redirectUri",
           scopes,
-          use_shared_key as "useSharedKey"
+          use_shared_key as "useSharedKey",
+          created_at as "createdAt",
+          updated_at as "updatedAt"
          FROM _oauth_configs
          WHERE LOWER(provider) = LOWER($1)
          LIMIT 1`,
@@ -221,11 +227,14 @@ export class OAuthConfigService {
         `INSERT INTO _oauth_configs (provider, client_id, secret_id, redirect_uri, scopes, use_shared_key)
          VALUES ($1, $2, $3, $4, $5, $6)
          RETURNING
+           id,
            provider,
            client_id as "clientId",
            redirect_uri as "redirectUri",
            scopes,
-           use_shared_key as "useSharedKey"`,
+           use_shared_key as "useSharedKey",
+           created_at as "createdAt",
+           updated_at as "updatedAt"`,
         [
           input.provider.toLowerCase(),
           input.clientId || null,
@@ -337,11 +346,14 @@ export class OAuthConfigService {
            SET ${updates.join(', ')}
            WHERE LOWER(provider) = $${paramCount}
            RETURNING
+             id,
              provider,
              client_id as "clientId",
              redirect_uri as "redirectUri",
              scopes,
-             use_shared_key as "useSharedKey"`,
+             use_shared_key as "useSharedKey",
+             created_at as "createdAt",
+             updated_at as "updatedAt"`,
           values
         );
 
