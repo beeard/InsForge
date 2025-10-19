@@ -75,7 +75,7 @@ export const oAuthStateSchema = z.object({
 
 // OAuth provider configuration schema
 export const oAuthConfigSchema = z.object({
-  provider: z.string(),
+  provider: oAuthProvidersSchema,
   clientId: z.string().optional(),
   scopes: z.array(z.string()).optional(),
   redirectUri: z.string().optional(),

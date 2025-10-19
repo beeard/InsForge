@@ -4,10 +4,10 @@ import { SecretService } from '@/core/secrets/secrets.js';
 import { AppError } from '@/api/middleware/error.js';
 import { ERROR_CODES } from '@/types/error-constants.js';
 import logger from '@/utils/logger.js';
-import { OAuthConfigSchema } from '@insforge/shared-schemas';
+import { OAuthConfigSchema, OAuthProvidersSchema } from '@insforge/shared-schemas';
 
 export interface CreateOAuthConfigInput {
-  provider: string;
+  provider: OAuthProvidersSchema;
   clientId?: string;
   clientSecret?: string;
   redirectUri?: string;
@@ -177,19 +177,42 @@ export class OAuthConfigService {
       // Set default scopes if not provided
       let scopes = input.scopes;
       if (!scopes) {
-        const provider = input.provider.toLowerCase();
-        if (provider === 'google') {
-          scopes = ['openid', 'email', 'profile'];
-        } else if (provider === 'github') {
-          scopes = ['user:email'];
-        } else if (provider === 'microsoft') {
-          scopes = ['User.Read'];
-        } else if (provider === 'discord') {
-          scopes = ['identify', 'email'];
-        } else if (provider === 'linkedin') {
-          scopes = ['openid', 'profile', 'email'];
-        } else if (provider === 'facebook') {
-          scopes = ['email', 'public_profile'];
+        switch (input.provider) {
+          case 'google':
+            scopes = ['openid', 'email', 'profile'];
+            break;
+          case 'github':
+            scopes = ['user:email'];
+            break;
+          case 'discord':
+            scopes = ['identify', 'email'];
+            break;
+          case 'linkedin':
+            scopes = ['openid', 'profile', 'email'];
+            break;
+          case 'facebook':
+            scopes = ['email', 'public_profile'];
+            break;
+          case 'instagram':
+            scopes = ['user_profile', 'user_media'];
+            break;
+          case 'tiktok':
+            scopes = ['user.info.basic'];
+            break;
+          case 'apple':
+            scopes = ['name', 'email'];
+            break;
+          case 'x':
+            scopes = ['tweet.read', 'users.read'];
+            break;
+          case 'spotify':
+            scopes = ['user-read-email', 'user-read-private'];
+            break;
+          case 'microsoft':
+            scopes = ['openid', 'email', 'profile'];
+            break;
+          default:
+            scopes = ['email', 'profile'];
         }
       }
 
@@ -325,19 +348,19 @@ export class OAuthConfigService {
         await client.query('COMMIT');
         logger.info('OAuth config updated', { provider });
         return result.rows[0];
-      } else {
-        // Only secret was updated
-        await client.query('COMMIT');
-        const updatedConfig = await this.getConfigByProvider(provider);
-        if (!updatedConfig) {
-          throw new AppError(
-            'Failed to retrieve updated configuration',
-            500,
-            ERROR_CODES.INTERNAL_ERROR
-          );
-        }
-        return updatedConfig;
       }
+
+      // Only secret was updated
+      await client.query('COMMIT');
+      const updatedConfig = await this.getConfigByProvider(provider);
+      if (!updatedConfig) {
+        throw new AppError(
+          'Failed to retrieve updated configuration',
+          500,
+          ERROR_CODES.INTERNAL_ERROR
+        );
+      }
+      return updatedConfig;
     } catch (error) {
       await client.query('ROLLBACK');
       logger.error('Failed to update OAuth config', { error, provider });
