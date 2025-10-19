@@ -48,9 +48,13 @@ router.get(
       const { provider } = req.params;
       const config = await oauthConfigService.getConfigByProvider(provider);
       const clientSecret = await oauthConfigService.getClientSecretByProvider(provider);
-      
+
       if (!config) {
-        throw new AppError(`OAuth configuration for ${provider} not found`, 404, ERROR_CODES.NOT_FOUND);
+        throw new AppError(
+          `OAuth configuration for ${provider} not found`,
+          404,
+          ERROR_CODES.NOT_FOUND
+        );
       }
 
       res.json({
@@ -58,7 +62,10 @@ router.get(
         clientSecret: clientSecret || undefined,
       });
     } catch (error) {
-      logger.error('Failed to get OAuth config by provider', { provider: req.params.provider, error });
+      logger.error('Failed to get OAuth config by provider', {
+        provider: req.params.provider,
+        error,
+      });
       next(error);
     }
   }
@@ -264,13 +271,13 @@ router.get('/:provider', async (req: Request, res: Response, next: NextFunction)
     res.json({ authUrl });
   } catch (error) {
     logger.error(`${req.params.provider} OAuth error`, { error });
-    
+
     // If it's already an AppError, pass it through
     if (error instanceof AppError) {
       next(error);
       return;
     }
-    
+
     // For other errors, return the generic OAuth configuration error
     next(
       new AppError(
@@ -380,9 +387,9 @@ router.get('/:provider/callback', async (req: Request, res: Response, _: NextFun
     }
 
     const validatedProvider = providerValidation.data;
-    const result = await authService.handleOAuthCallback(validatedProvider, { 
-      code: code as string | undefined, 
-      token: token as string | undefined 
+    const result = await authService.handleOAuthCallback(validatedProvider, {
+      code: code as string | undefined,
+      token: token as string | undefined,
     });
 
     // Create URL with JWT token and user info (like the working example)

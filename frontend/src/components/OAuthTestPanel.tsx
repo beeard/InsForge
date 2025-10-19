@@ -18,7 +18,7 @@ interface OAuthTestResult {
 
 const SUPPORTED_PROVIDERS = [
   'google',
-  'github', 
+  'github',
   'discord',
   'linkedin',
   'facebook',
@@ -27,7 +27,7 @@ const SUPPORTED_PROVIDERS = [
   'apple',
   'x',
   'spotify',
-  'microsoft'
+  'microsoft',
 ];
 
 export const OAuthTestPanel: React.FC = () => {
@@ -46,7 +46,7 @@ export const OAuthTestPanel: React.FC = () => {
     try {
       const params = new URLSearchParams({
         redirect_uri: redirectUri,
-        ...(state && { state })
+        ...(state && { state }),
       });
 
       const response = await fetch(`/api/auth/oauth/${provider}?${params}`);
@@ -57,14 +57,14 @@ export const OAuthTestPanel: React.FC = () => {
           provider,
           success: true,
           authUrl: data.authUrl || data.url,
-          statusCode: response.status
+          statusCode: response.status,
         };
       } else {
         return {
           provider,
           success: false,
           error: data.message || data.error || 'Unknown error',
-          statusCode: response.status
+          statusCode: response.status,
         };
       }
     } catch (error) {
@@ -72,7 +72,7 @@ export const OAuthTestPanel: React.FC = () => {
         provider,
         success: false,
         error: error instanceof Error ? error.message : 'Network error',
-        statusCode: 0
+        statusCode: 0,
       };
     }
   };
@@ -80,9 +80,9 @@ export const OAuthTestPanel: React.FC = () => {
   const testSelectedProvider = async () => {
     if (!selectedProvider) {
       toast({
-        title: "Error",
-        description: "Please select a provider to test",
-        variant: "destructive"
+        title: 'Error',
+        description: 'Please select a provider to test',
+        variant: 'destructive',
       });
       return;
     }
@@ -102,7 +102,7 @@ export const OAuthTestPanel: React.FC = () => {
     setIsLoading(true);
     try {
       const results = await Promise.all(
-        SUPPORTED_PROVIDERS.map(provider => testSingleProvider(provider))
+        SUPPORTED_PROVIDERS.map((provider) => testSingleProvider(provider))
       );
       setTestResults(results);
     } catch (error) {
@@ -115,8 +115,8 @@ export const OAuthTestPanel: React.FC = () => {
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     toast({
-      title: "Copied",
-      description: "URL copied to clipboard",
+      title: 'Copied',
+      description: 'URL copied to clipboard',
     });
   };
 
@@ -142,7 +142,7 @@ export const OAuthTestPanel: React.FC = () => {
                 <SelectValue placeholder="Select a provider to test" />
               </SelectTrigger>
               <SelectContent>
-                {SUPPORTED_PROVIDERS.map(provider => (
+                {SUPPORTED_PROVIDERS.map((provider) => (
                   <SelectItem key={provider} value={provider}>
                     {provider.charAt(0).toUpperCase() + provider.slice(1)}
                   </SelectItem>
@@ -172,12 +172,7 @@ export const OAuthTestPanel: React.FC = () => {
                 onChange={(e) => setState(e.target.value)}
                 placeholder="Optional state parameter"
               />
-              <Button
-                type="button"
-                variant="outline"
-                onClick={generateRandomState}
-                size="sm"
-              >
+              <Button type="button" variant="outline" onClick={generateRandomState} size="sm">
                 Generate
               </Button>
             </div>
@@ -185,17 +180,10 @@ export const OAuthTestPanel: React.FC = () => {
 
           {/* Action Buttons */}
           <div className="flex gap-2">
-            <Button
-              onClick={testSelectedProvider}
-              disabled={isLoading || !selectedProvider}
-            >
+            <Button onClick={testSelectedProvider} disabled={isLoading || !selectedProvider}>
               {isLoading ? 'Testing...' : 'Test Selected Provider'}
             </Button>
-            <Button
-              onClick={testAllProviders}
-              disabled={isLoading}
-              variant="outline"
-            >
+            <Button onClick={testAllProviders} disabled={isLoading} variant="outline">
               {isLoading ? 'Testing All...' : 'Test All Providers'}
             </Button>
           </div>
@@ -207,9 +195,7 @@ export const OAuthTestPanel: React.FC = () => {
         <Card>
           <CardHeader>
             <CardTitle>Test Results</CardTitle>
-            <CardDescription>
-              Results from OAuth provider testing
-            </CardDescription>
+            <CardDescription>Results from OAuth provider testing</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -234,9 +220,7 @@ export const OAuthTestPanel: React.FC = () => {
                       )}
                     </div>
                     {result.statusCode && (
-                      <Badge variant="outline">
-                        Status: {result.statusCode}
-                      </Badge>
+                      <Badge variant="outline">Status: {result.statusCode}</Badge>
                     )}
                   </div>
 
@@ -244,11 +228,7 @@ export const OAuthTestPanel: React.FC = () => {
                     <div className="space-y-2">
                       <Label className="text-sm font-medium">Generated OAuth URL:</Label>
                       <div className="flex gap-2">
-                        <Input
-                          value={result.authUrl}
-                          readOnly
-                          className="font-mono text-xs"
-                        />
+                        <Input value={result.authUrl} readOnly className="font-mono text-xs" />
                         <Button
                           size="sm"
                           variant="outline"
@@ -270,9 +250,7 @@ export const OAuthTestPanel: React.FC = () => {
                   {!result.success && result.error && (
                     <div className="space-y-2">
                       <Label className="text-sm font-medium text-red-600">Error:</Label>
-                      <p className="text-sm text-red-600 bg-red-50 p-2 rounded">
-                        {result.error}
-                      </p>
+                      <p className="text-sm text-red-600 bg-red-50 p-2 rounded">{result.error}</p>
                     </div>
                   )}
                 </div>
@@ -283,14 +261,12 @@ export const OAuthTestPanel: React.FC = () => {
             <div className="mt-4 pt-4 border-t">
               <div className="flex gap-4 text-sm">
                 <span className="text-green-600">
-                  ✓ Successful: {testResults.filter(r => r.success).length}
+                  ✓ Successful: {testResults.filter((r) => r.success).length}
                 </span>
                 <span className="text-red-600">
-                  ✗ Failed: {testResults.filter(r => !r.success).length}
+                  ✗ Failed: {testResults.filter((r) => !r.success).length}
                 </span>
-                <span className="text-gray-600">
-                  Total: {testResults.length}
-                </span>
+                <span className="text-gray-600">Total: {testResults.length}</span>
               </div>
             </div>
           </CardContent>
@@ -303,14 +279,18 @@ export const OAuthTestPanel: React.FC = () => {
           <CardTitle>Testing Instructions</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
-          <p><strong>1. Backend Testing:</strong> Run the OAuth test script:</p>
-          <code className="block bg-gray-100 p-2 rounded">
-            ./backend/tests/local/test-oauth.sh
-          </code>
-          
-          <p><strong>2. Frontend Testing:</strong> Use this panel to test OAuth URL generation</p>
-          
-          <p><strong>3. Full Integration:</strong> Test the complete OAuth flow by:</p>
+          <p>
+            <strong>1. Backend Testing:</strong> Run the OAuth test script:
+          </p>
+          <code className="block bg-gray-100 p-2 rounded">./backend/tests/local/test-oauth.sh</code>
+
+          <p>
+            <strong>2. Frontend Testing:</strong> Use this panel to test OAuth URL generation
+          </p>
+
+          <p>
+            <strong>3. Full Integration:</strong> Test the complete OAuth flow by:
+          </p>
           <ul className="list-disc list-inside ml-4 space-y-1">
             <li>Generating an OAuth URL</li>
             <li>Clicking the "Open in New Tab" button</li>
@@ -318,7 +298,10 @@ export const OAuthTestPanel: React.FC = () => {
             <li>Verifying the callback handling</li>
           </ul>
 
-          <p><strong>4. Configuration Testing:</strong> Test OAuth configuration management in the admin panel</p>
+          <p>
+            <strong>4. Configuration Testing:</strong> Test OAuth configuration management in the
+            admin panel
+          </p>
         </CardContent>
       </Card>
     </div>
