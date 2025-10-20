@@ -102,7 +102,7 @@ export function useStorage() {
   });
 
   // Mutation to delete an object
-  const deleteObjectMutation = useMutation({
+  const deleteObjectsMutation = useMutation({
     mutationFn: ({ bucket, keys }: { bucket: string; keys: string[] }) =>
       storageService.deleteObjects(bucket, keys),
     onSuccess: (result) => {
@@ -183,7 +183,7 @@ export function useStorage() {
     // Loading states
     isLoadingBuckets,
     isUploadingObject: uploadObjectMutation.isPending,
-    isDeletingObject: deleteObjectMutation.isPending,
+    isDeletingObject: deleteObjectsMutation.isPending,
     isCreatingBucket: createBucketMutation.isPending,
     isDeletingBucket: deleteBucketMutation.isPending,
     isEditingBucket: editBucketMutation.isPending,
@@ -193,7 +193,7 @@ export function useStorage() {
 
     // Actions
     uploadObject: uploadObjectMutation.mutateAsync,
-    deleteObjects: deleteObjectMutation.mutate,
+    deleteObjects: deleteObjectsMutation.mutate,
     createBucket: createBucketMutation.mutateAsync,
     deleteBucket: deleteBucketMutation.mutateAsync,
     editBucket: editBucketMutation.mutateAsync,
