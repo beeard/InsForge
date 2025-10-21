@@ -3,7 +3,7 @@ import { recordService, CSVImportResponse } from '../services/record.service.js'
 
 interface UseCSVImportOptions {
   onSuccess?: (data: CSVImportResponse) => void;
-  onError?: (error: unknown) => void;
+  onError?: (error: Error) => void;
 }
 
 export function useCSVImport(tableName: string, options?: UseCSVImportOptions) {
