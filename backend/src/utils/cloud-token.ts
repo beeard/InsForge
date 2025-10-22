@@ -2,32 +2,16 @@ import { createRemoteJWKSet, JWTPayload, jwtVerify } from 'jose';
 import { AppError } from '@/api/middleware/error';
 import { ERROR_CODES, NEXT_ACTION } from '@/types/error-constants';
 
-// Cache the JWKS instance to avoid repeated fetches
-let cachedJWKS: ReturnType<typeof createRemoteJWKSet> | null = null;
-let jwksUrl: string | null = null;
-
 /**
- * Get or create cached JWKS instance
+ * Create JWKS instance with caching and timeout configuration
+ * The instance will automatically cache keys and handle refetching
  */
-function getJWKS() {
-  const cloudApiHost = process.env.CLOUD_API_HOST || 'https://api.insforge.dev';
-  const currentUrl = `${cloudApiHost}/.well-known/jwks.json`;
-
-  // Return cached instance if URL hasn't changed
-  if (cachedJWKS && jwksUrl === currentUrl) {
-    return cachedJWKS;
-  }
-
-  // Create new JWKS instance with timeout and cache settings
-  jwksUrl = currentUrl;
-  cachedJWKS = createRemoteJWKSet(new URL(currentUrl), {
-    timeoutDuration: 10000, // 10 second timeout
-    cooldownDuration: 30000, // 30 seconds between refetches
-    cacheMaxAge: 600000, // Cache for 10 minutes
-  });
-
-  return cachedJWKS;
-}
+const cloudApiHost = process.env.CLOUD_API_HOST || 'https://api.insforge.dev';
+const JWKS = createRemoteJWKSet(new URL(`${cloudApiHost}/.well-known/jwks.json`), {
+  timeoutDuration: 10000, // 10 second timeout for HTTP requests
+  cooldownDuration: 30000, // 30 seconds cooldown after successful fetch
+  cacheMaxAge: 600000, // Maximum 10 minutes between refetches
+});
 
 /**
  * Helper function to verify cloud backend JWT token
@@ -37,9 +21,7 @@ export async function verifyCloudToken(
   token: string
 ): Promise<{ projectId: string; payload: JWTPayload }> {
   try {
-    const JWKS = getJWKS();
-
-    // Verify the token with jose
+    // JWKS handles caching internally, no need to manage it manually
     const { payload } = await jwtVerify(token, JWKS, {
       algorithms: ['RS256', 'RS384', 'RS512', 'ES256', 'ES384', 'ES512'],
     });
