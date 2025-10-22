@@ -341,11 +341,11 @@ router.get('/shared/callback/:state', async (req: Request, res: Response, next: 
     }
     const validatedProvider = providerValidation.data;
     if (!redirectUri) {
-      throw new AppError('Origin is required', 400, ERROR_CODES.INVALID_INPUT);
+      throw new AppError('redirectUri is required', 400, ERROR_CODES.INVALID_INPUT);
     }
 
     if (success !== 'true') {
-      const errorMessage = error || 'OAuth authentication failed';
+      const errorMessage = error || 'OAuth Authentication Failed';
       logger.warn('Shared OAuth callback failed', { error: errorMessage, provider });
       return res.redirect(`${redirectUri}/?error=${encodeURIComponent(String(errorMessage))}`);
     }
@@ -354,20 +354,86 @@ router.get('/shared/callback/:state', async (req: Request, res: Response, next: 
       throw new AppError('No payload provided in callback', 400, ERROR_CODES.INVALID_INPUT);
     }
 
-    try {
-      const payloadData = JSON.parse(Buffer.from(payload as string, 'base64').toString('utf8'));
-      const result = await authService.handleOAuthCallback(validatedProvider, payloadData);
+    const payloadData = JSON.parse(Buffer.from(payload as string, 'base64').toString('utf8'));
+    let result;
 
-      const finalredirectUri = new URL(redirectUri);
-      finalredirectUri.searchParams.set('access_token', result?.accessToken ?? '');
-      finalredirectUri.searchParams.set('user_id', result?.user.id ?? '');
-      finalredirectUri.searchParams.set('email', result?.user.email ?? '');
-      finalredirectUri.searchParams.set('name', result?.user.name ?? '');
-      res.redirect(finalredirectUri.toString());
-    } catch (error) {
-      logger.error('OAuth callback processing failed', { error, provider });
-      res.redirect(`${redirectUri}/?error=${encodeURIComponent('Authentication failed')}`);
+    switch (validatedProvider) {
+      case 'google': {
+        // Handle Google OAuth payload
+        const googleUserInfo = {
+          sub: payloadData.providerId,
+          email: payloadData.email,
+          name: payloadData.name || '',
+          userName: payloadData.userName || '',
+          picture: payloadData.avatar || '',
+        };
+        result = await authService.findOrCreateGoogleUser(googleUserInfo);
+        break;
+      }
+      case 'github': {
+        // Handle GitHub OAuth payload
+        const githubUserInfo = {
+          id: payloadData.providerId,
+          login: payloadData.login || '',
+          email: payloadData.email,
+          name: payloadData.name || '',
+          avatar_url: payloadData.avatar || '',
+        };
+        result = await authService.findOrCreateGitHubUser(githubUserInfo);
+        break;
+      }
+      case 'microsoft': {
+        // Handle Microsoft OAuth payload
+        const microsoftUserInfo = {
+          id: payloadData.providerId,
+          email: payloadData.email,
+          name: payloadData.name || '',
+          avatar_url: payloadData.avatar || '',
+        };
+        result = await authService.findOrCreateMicrosoftUser(microsoftUserInfo);
+        break;
+      }
+      case 'discord': {
+        // Handle Discord OAuth payload
+        const discordUserInfo = {
+          id: payloadData.providerId,
+          username: payloadData.username || '',
+          email: payloadData.email,
+          avatar: payloadData.avatar || '',
+        };
+        result = await authService.findOrCreateDiscordUser(discordUserInfo);
+        break;
+      }
+      case 'linkedin': {
+        // Handle LinkedIn OAuth payload
+        const linkedinUserInfo = {
+          sub: payloadData.providerId,
+          email: payloadData.email,
+          name: payloadData.name || '',
+          picture: payloadData.avatar || '',
+        };
+        result = await authService.findOrCreateLinkedInUser(linkedinUserInfo);
+        break;
+      }
+      case 'facebook': {
+        // Handle Facebook OAuth payload
+        const facebookUserInfo = {
+          id: payloadData.providerId,
+          email: payloadData.email,
+          name: payloadData.name || '',
+          picture: payloadData.picture || { data: { url: payloadData.avatar || '' } },
+        };
+        result = await authService.findOrCreateFacebookUser(facebookUserInfo);
+        break;
+      }
     }
+
+    const finalredirectUri = new URL(redirectUri);
+    finalredirectUri.searchParams.set('access_token', result?.accessToken ?? '');
+    finalredirectUri.searchParams.set('user_id', result?.user.id ?? '');
+    finalredirectUri.searchParams.set('email', result?.user.email ?? '');
+    finalredirectUri.searchParams.set('name', result?.user.name ?? '');
+    res.redirect(finalredirectUri.toString());
   } catch (error) {
     logger.error('Shared OAuth callback error', { error });
     next(error);
@@ -392,7 +458,7 @@ router.get('/:provider/callback', async (req: Request, res: Response, _: NextFun
         redirectUri = stateData.redirectUri || '/';
       } catch {
         // Invalid state, use default redirectUri
-        logger.warn('Invalid state in provider callback, using default origin', { state });
+        logger.warn('Invalid state in provider callback', { state });
       }
     }
 
@@ -426,7 +492,6 @@ router.get('/:provider/callback', async (req: Request, res: Response, _: NextFun
       provider: validatedProvider,
     });
 
-    // Redirect to the validated origin without sensitive data in URL
     return res.redirect(finalredirectUri.toString());
   } catch (error) {
     logger.error('OAuth callback error', {
@@ -451,7 +516,7 @@ router.get('/:provider/callback', async (req: Request, res: Response, _: NextFun
         })()
       : '/';
 
-    const errorMessage = error instanceof Error ? error.message : 'OAuth authentication failed';
+    const errorMessage = error instanceof Error ? error.message : 'OAuth Authentication Failed';
 
     // Redirect with error in URL parameters
     const errorredirectUri = new URL(redirectUri);

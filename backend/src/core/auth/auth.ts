@@ -1204,7 +1204,7 @@ export class AuthService {
   /**
    * Generate Facebook OAuth authorization URL
    */
-  async generateFacebookOAuthUrl(state?: string): Promise<string | undefined> {
+  async generateFacebookOAuthUrl(state?: string): Promise<string> {
     const oauthConfigService = OAuthConfigService.getInstance();
     const config = await oauthConfigService.getConfigByProvider('facebook');
 
@@ -1338,6 +1338,8 @@ export class AuthService {
         return this.generateDiscordOAuthUrl(state);
       case 'linkedin':
         return this.generateLinkedInOAuthUrl(state);
+      case 'facebook':
+        return this.generateFacebookOAuthUrl(state);
       case 'microsoft':
         return this.generateMicrosoftOAuthUrl(state);
       default:
@@ -1350,7 +1352,7 @@ export class AuthService {
    */
   async handleOAuthCallback(
     provider: OAuthProvidersSchema,
-    payload: { code?: string; token?: string; [key: string]: unknown }
+    payload: { code?: string; token?: string }
   ): Promise<CreateSessionResponse> {
     switch (provider) {
       case 'google':
@@ -1361,6 +1363,8 @@ export class AuthService {
         return this.handleDiscordCallback(payload);
       case 'linkedin':
         return this.handleLinkedInCallback(payload);
+      case 'facebook':
+        return this.handleFacebookCallback(payload);
       case 'microsoft':
         return this.handleMicrosoftCallback(payload);
       default:
@@ -1440,6 +1444,22 @@ export class AuthService {
     }
 
     throw new Error('No authorization code or token provided');
+  }
+
+  /**
+   * Handle Facebook OAuth callback
+   */
+  private async handleFacebookCallback(payload: {
+    code?: string;
+    token?: string;
+  }): Promise<CreateSessionResponse> {
+    if (!payload.code) {
+      throw new AppError('No authorization code provided', 400, ERROR_CODES.INVALID_INPUT);
+    }
+
+    const accessToken = await this.exchangeFacebookCodeForToken(payload.code as string);
+    const facebookUserInfo = await this.getFacebookUserInfo(accessToken);
+    return this.findOrCreateFacebookUser(facebookUserInfo);
   }
 
   /**
