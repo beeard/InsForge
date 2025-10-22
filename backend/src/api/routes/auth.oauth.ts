@@ -46,8 +46,9 @@ const validateRedirectOrigin = (redirectUri: string): string => {
   }
 
   // Get allowed origins from environment
-  const allowedOrigins = process.env.OAUTH_ALLOWED_ORIGINS?.split(',').map(origin => origin.trim()) || [];
-  
+  const allowedOrigins =
+    process.env.OAUTH_ALLOWED_ORIGINS?.split(',').map((origin) => origin.trim()) || [];
+
   if (allowedOrigins.length === 0) {
     throw new AppError(
       'OAuth redirect validation is not configured. OAUTH_ALLOWED_ORIGINS must be set.',
@@ -57,12 +58,12 @@ const validateRedirectOrigin = (redirectUri: string): string => {
   }
 
   const origin = `${parsedUrl.protocol}//${parsedUrl.host}`;
-  
+
   if (!allowedOrigins.includes(origin)) {
-    logger.warn('OAuth redirect to disallowed origin blocked', { 
-      origin, 
+    logger.warn('OAuth redirect to disallowed origin blocked', {
+      origin,
       allowedOrigins,
-      redirectUri 
+      redirectUri,
     });
     throw new AppError(
       `Redirect origin not allowed. Allowed origins: ${allowedOrigins.join(', ')}`,
@@ -75,13 +76,15 @@ const validateRedirectOrigin = (redirectUri: string): string => {
 };
 
 // Helper function to set secure authentication cookies
-const setAuthCookies = (res: Response, result: any) => {
+type AuthResult = { accessToken?: string; user?: { id?: string; email?: string; name?: string } };
+
+const setAuthCookies = (res: Response, result: AuthResult) => {
   const cookieOptions = {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax' as const,
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    path: '/'
+    path: '/',
   };
 
   if (result?.accessToken) {
@@ -105,7 +108,7 @@ const clearAuthCookies = (res: Response) => {
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax' as const,
     maxAge: 0,
-    path: '/'
+    path: '/',
   };
 
   res.cookie('access_token', '', cookieOptions);
@@ -115,20 +118,30 @@ const clearAuthCookies = (res: Response) => {
 };
 
 // Helper function to sanitize logging data
-const sanitizeLogData = (data: any): any => {
+const _sanitizeLogData = (data: unknown): unknown => {
   if (typeof data !== 'object' || data === null) {
     return data;
   }
 
-  const sanitized = { ...data };
-  const sensitiveKeys = ['accessToken', 'access_token', 'token', 'password', 'secret', 'email', 'name', 'userId', 'user_id'];
-  
+  const sanitized: Record<string, unknown> = { ...(data as Record<string, unknown>) };
+  const sensitiveKeys = [
+    'accessToken',
+    'access_token',
+    'token',
+    'password',
+    'secret',
+    'email',
+    'name',
+    'userId',
+    'user_id',
+  ];
+
   for (const key of sensitiveKeys) {
     if (key in sanitized) {
-      if (typeof sanitized[key] === 'string' && sanitized[key].length > 0) {
+      if (typeof sanitized[key] === 'string' && (sanitized[key] as string).length > 0) {
         sanitized[key] = '[REDACTED]';
       } else if (typeof sanitized[key] === 'boolean') {
-        sanitized[key] = sanitized[key] ? '[PRESENT]' : '[ABSENT]';
+        sanitized[key] = (sanitized[key] as boolean) ? '[PRESENT]' : '[ABSENT]';
       }
     }
   }
@@ -136,7 +149,7 @@ const sanitizeLogData = (data: any): any => {
   // Recursively sanitize nested objects
   for (const key in sanitized) {
     if (typeof sanitized[key] === 'object' && sanitized[key] !== null) {
-      sanitized[key] = sanitizeLogData(sanitized[key]);
+      sanitized[key] = _sanitizeLogData(sanitized[key]);
     }
   }
 
@@ -495,10 +508,7 @@ router.get('/:provider/callback', async (req: Request, res: Response, _: NextFun
     if (state) {
       try {
         const jwtSecret = validateJwtSecret();
-        const stateData = jwt.verify(
-          state as string,
-          jwtSecret
-        ) as {
+        const stateData = jwt.verify(state as string, jwtSecret) as {
           provider: string;
           origin: string;
         };
@@ -520,7 +530,7 @@ router.get('/:provider/callback', async (req: Request, res: Response, _: NextFun
     }
 
     const validatedProvider = providerValidation.data;
-    
+
     try {
       const result = await authService.handleOAuthCallback(validatedProvider, {
         code: code as string | undefined,
@@ -540,10 +550,10 @@ router.get('/:provider/callback', async (req: Request, res: Response, _: NextFun
       // Redirect to the validated origin without sensitive data in URL
       return res.redirect(`${origin}/?success=true`);
     } catch (error) {
-      logger.error('OAuth callback processing failed', { 
+      logger.error('OAuth callback processing failed', {
         error: error instanceof Error ? error.message : 'Unknown error',
         provider: validatedProvider,
-        origin 
+        origin,
       });
       clearAuthCookies(res);
       return res.redirect(`${origin}/?error=${encodeURIComponent('Authentication failed')}`);
@@ -563,7 +573,7 @@ router.get('/:provider/callback', async (req: Request, res: Response, _: NextFun
     // Get origin from state or use default
     let origin = process.env.DEFAULT_FRONTEND_ORIGIN || 'http://localhost:3000';
     const { state } = req.query;
-    
+
     if (state) {
       try {
         const jwtSecret = validateJwtSecret();
