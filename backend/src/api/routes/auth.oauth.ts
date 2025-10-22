@@ -14,6 +14,7 @@ import {
   createOAuthConfigRequestSchema,
   updateOAuthConfigRequestSchema,
   type ListOAuthConfigsResponse,
+  oAuthProvidersSchema,
 } from '@insforge/shared-schemas';
 import { isOAuthSharedKeysAvailable } from '@/utils/environment.js';
 
@@ -22,475 +23,100 @@ const authService = AuthService.getInstance();
 const oauthConfigService = OAuthConfigService.getInstance();
 const auditService = AuditService.getInstance();
 
-// GET /api/auth/oauth/facebook - Initialize Facebook OAuth flow
-router.get('/facebook', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { redirect_uri } = req.query;
-    if (!redirect_uri) {
-      throw new AppError('Redirect URI is required', 400, ERROR_CODES.INVALID_INPUT);
-    }
-
-    const jwtPayload = {
-      provider: 'facebook',
-      redirectUri: redirect_uri ? (redirect_uri as string) : undefined,
-      createdAt: Date.now(),
-    };
-    const state = jwt.sign(jwtPayload, process.env.JWT_SECRET || 'default_secret', {
-      algorithm: 'HS256',
-      expiresIn: '1h',
-    });
-    const authUrl = await authService.generateFacebookAuthUrl(state);
-
-    res.json({ authUrl });
-  } catch (error) {
-    logger.error('Facebook OAuth error', { error });
-    next(
-      new AppError(
-        'Facebook OAuth is not properly configured. Please check your oauth configurations.',
-        500,
-        ERROR_CODES.AUTH_OAUTH_CONFIG_ERROR
-      )
+// Helper function to validate JWT_SECRET
+const validateJwtSecret = (): string => {
+  const jwtSecret = process.env.JWT_SECRET;
+  if (!jwtSecret || jwtSecret.trim() === '') {
+    throw new AppError(
+      'JWT_SECRET environment variable is not configured. This is required for OAuth state protection.',
+      500,
+      ERROR_CODES.AUTH_OAUTH_CONFIG_ERROR
     );
   }
-});
+  return jwtSecret;
+};
 
-// GET /api/auth/oauth/google - Initialize Google OAuth flow
-router.get('/google', async (req: Request, res: Response, next: NextFunction) => {
+// Helper function to validate and normalize redirect origins
+const validateRedirectOrigin = (redirectUri: string): string => {
+  let parsedUrl: URL;
   try {
-    const { redirect_uri } = req.query;
-    if (!redirect_uri) {
-      throw new AppError('Redirect URI is required', 400, ERROR_CODES.INVALID_INPUT);
-    }
+    parsedUrl = new URL(redirectUri);
+  } catch {
+    throw new AppError('Invalid redirect URI format', 400, ERROR_CODES.INVALID_INPUT);
+  }
 
-    const jwtPayload = {
-      provider: 'google',
-      redirectUri: redirect_uri ? (redirect_uri as string) : undefined,
-      createdAt: Date.now(),
-    };
-    const state = jwt.sign(jwtPayload, process.env.JWT_SECRET || 'default_secret', {
-      algorithm: 'HS256',
-      expiresIn: '1h', // Set expiration time for the state token
-    });
-    const authUrl = await authService.generateGoogleAuthUrl(state);
+  // Get allowed origins from environment
+  const allowedOrigins =
+    process.env.OAUTH_ALLOWED_ORIGINS?.split(',').map((origin) => origin.trim()) || [];
 
-    res.json({ authUrl });
-  } catch (error) {
-    logger.error('Google OAuth error', { error });
-    next(
-      new AppError(
-        'Google OAuth is not properly configured. Please check your oauth configurations.',
-        500,
-        ERROR_CODES.AUTH_OAUTH_CONFIG_ERROR
-      )
+  if (allowedOrigins.length === 0) {
+    throw new AppError(
+      'OAuth redirect validation is not configured. OAUTH_ALLOWED_ORIGINS must be set.',
+      500,
+      ERROR_CODES.AUTH_OAUTH_CONFIG_ERROR
     );
   }
-});
 
-// GET /api/auth/oauth/github - Initialize GitHub OAuth flow
-router.get('/github', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { redirect_uri } = req.query;
-    if (!redirect_uri) {
-      throw new AppError('Redirect URI is required', 400, ERROR_CODES.INVALID_INPUT);
-    }
+  const origin = `${parsedUrl.protocol}//${parsedUrl.host}`;
 
-    const jwtPayload = {
-      provider: 'github',
-      redirectUri: redirect_uri ? (redirect_uri as string) : undefined,
-      createdAt: Date.now(),
-    };
-    const state = jwt.sign(jwtPayload, process.env.JWT_SECRET || 'default_secret', {
-      algorithm: 'HS256',
-      expiresIn: '1h', // Set expiration time for the state token
+  if (!allowedOrigins.includes(origin)) {
+    logger.warn('OAuth redirect to disallowed origin blocked', {
+      origin,
+      allowedOrigins,
+      redirectUri,
     });
-
-    const authUrl = await authService.generateGitHubAuthUrl(state);
-
-    res.json({ authUrl });
-  } catch (error) {
-    logger.error('GitHub OAuth error', { error });
-    next(
-      new AppError(
-        'GitHub OAuth is not properly configured. Please check your oauth configurations.',
-        500,
-        ERROR_CODES.AUTH_OAUTH_CONFIG_ERROR
-      )
+    throw new AppError(
+      `Redirect origin not allowed. Allowed origins: ${allowedOrigins.join(', ')}`,
+      400,
+      ERROR_CODES.INVALID_INPUT
     );
   }
-});
 
-// GET /api/auth/oauth/discord - Initialize Discord OAuth flow
-router.get('/discord', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { redirect_uri } = req.query;
-    if (!redirect_uri) {
-      throw new AppError('Redirect URI is required', 400, ERROR_CODES.INVALID_INPUT);
-    }
+  return origin;
+};
 
-    const jwtPayload = {
-      provider: 'discord',
-      redirectUri: redirect_uri ? (redirect_uri as string) : undefined,
-      createdAt: Date.now(),
-    };
-    const state = jwt.sign(jwtPayload, process.env.JWT_SECRET || 'default_secret', {
-      algorithm: 'HS256',
-      expiresIn: '1h', // Set expiration time for the state token
-    });
+// Helper function to set secure authentication cookies
+type AuthResult = { accessToken?: string; user?: { id?: string; email?: string; name?: string } };
 
-    const authUrl = await authService.generateDiscordAuthUrl(state);
+const setAuthCookies = (res: Response, result: AuthResult) => {
+  const cookieOptions = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'none' as const, // 'none' required for cross-origin OAuth flows with CORS credentials
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    path: '/',
+  };
 
-    res.json({ authUrl });
-  } catch (error) {
-    logger.error('Discord OAuth error', { error });
-    next(
-      new AppError(
-        'Discord OAuth is not properly configured. Please check your oauth configurations.',
-        500,
-        ERROR_CODES.AUTH_OAUTH_CONFIG_ERROR
-      )
-    );
+  if (result?.accessToken) {
+    res.cookie('access_token', result.accessToken, cookieOptions);
   }
-});
+};
 
-// GET /api/auth/oauth/linkedin - Initialize LinkedIn OAuth flow
-router.get('/linkedin', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { redirect_uri } = req.query;
-    if (!redirect_uri) {
-      throw new AppError('Redirect URI is required', 400, ERROR_CODES.INVALID_INPUT);
-    }
+// Helper function to clear authentication cookies
+const clearAuthCookies = (res: Response) => {
+  const cookieOptions = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'none' as const, // 'none' required for cross-origin OAuth flows with CORS credentials
+    maxAge: 0,
+    path: '/',
+  };
 
-    const jwtPayload = {
-      provider: 'linkedin',
-      redirectUri: redirect_uri ? (redirect_uri as string) : undefined,
-      createdAt: Date.now(),
-    };
-    const state = jwt.sign(jwtPayload, process.env.JWT_SECRET || 'default_secret', {
-      algorithm: 'HS256',
-      expiresIn: '1h',
-    });
+  res.cookie('access_token', '', cookieOptions);
+};
 
-    const authUrl = await authService.generateLinkedInAuthUrl(state);
-
-    res.json({ authUrl });
-  } catch (error) {
-    logger.error('LinkedIn OAuth error', { error });
-    next(
-      new AppError(
-        'LinkedIn OAuth is not properly configured. Please check your oauth configurations.',
-        500,
-        ERROR_CODES.AUTH_OAUTH_CONFIG_ERROR
-      )
-    );
-  }
-});
-
-// NEW: GET /api/auth/oauth/microsoft - Initialize Microsoft OAuth flow
-router.get('/microsoft', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { redirect_uri } = req.query;
-    if (!redirect_uri) {
-      throw new AppError('Redirect URI is required', 400, ERROR_CODES.INVALID_INPUT);
-    }
-
-    const jwtPayload = {
-      provider: 'microsoft',
-      redirectUri: redirect_uri ? (redirect_uri as string) : undefined,
-      createdAt: Date.now(),
-    };
-    const state = jwt.sign(jwtPayload, process.env.JWT_SECRET || 'default_secret', {
-      algorithm: 'HS256',
-      expiresIn: '1h',
-    });
-
-    const authUrl = await authService.generateMicrosoftAuthUrl(state);
-    res.json({ authUrl });
-  } catch (error) {
-    logger.error('Microsoft OAuth error', { error });
-    next(
-      new AppError(
-        'Microsoft OAuth is not properly configured. Please check your oauth configurations.',
-        500,
-        ERROR_CODES.AUTH_OAUTH_CONFIG_ERROR
-      )
-    );
-  }
-});
-
-// GET /api/auth/oauth/shared/callback/:state - Shared callback for OAuth providers
-router.get('/shared/callback/:state', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { state } = req.params;
-    const { success, error, payload } = req.query;
-
-    if (!state) {
-      logger.warn('Shared OAuth callback called without state parameter');
-      throw new AppError('State parameter is required', 400, ERROR_CODES.INVALID_INPUT);
-    }
-
-    let redirectUri: string;
-    let provider: string;
-    try {
-      const decodedState = jwt.verify(state, process.env.JWT_SECRET || 'default_secret') as {
-        provider: string;
-        redirectUri: string;
-      };
-      redirectUri = decodedState.redirectUri || '/';
-      provider = decodedState.provider || '';
-    } catch {
-      logger.warn('Invalid state parameter', { state });
-      throw new AppError('Invalid state parameter', 400, ERROR_CODES.INVALID_INPUT);
-    }
-
-    if (!['google', 'github', 'facebook', 'discord', 'linkedin'].includes(provider)) {
-      logger.warn('Invalid provider in state', { provider });
-      throw new AppError('Invalid provider in state', 400, ERROR_CODES.INVALID_INPUT);
-    }
-    if (!redirectUri) {
-      throw new AppError('Redirect URL is required', 400, ERROR_CODES.INVALID_INPUT);
-    }
-
-    if (success !== 'true') {
-      const errorMessage = error || 'OAuth authentication failed';
-      logger.warn('Shared OAuth callback failed', { error: errorMessage, provider });
-      return res.redirect(`${redirectUri}?error=${encodeURIComponent(String(errorMessage))}`);
-    }
-    if (!payload) {
-      throw new AppError('No payload provided in callback', 400, ERROR_CODES.INVALID_INPUT);
-    }
-
-    const payloadData = JSON.parse(Buffer.from(payload as string, 'base64').toString('utf8'));
-    let result;
-    if (provider === 'google') {
-      // Handle Google OAuth payload
-      const googleUserInfo = {
-        sub: payloadData.providerId,
-        email: payloadData.email,
-        name: payloadData.name || '',
-        userName: payloadData.userName || '',
-        picture: payloadData.avatar || '',
-      };
-      result = await authService.findOrCreateGoogleUser(googleUserInfo);
-    } else if (provider === 'github') {
-      // Handle GitHub OAuth payload
-      const githubUserInfo = {
-        id: payloadData.providerId,
-        login: payloadData.login || '',
-        email: payloadData.email,
-        name: payloadData.name || '',
-        avatar_url: payloadData.avatar || '',
-      };
-      result = await authService.findOrCreateGitHubUser(githubUserInfo);
-    } else if (provider === 'microsoft') {
-      // Handle Microsoft OAuth payload
-      const microsoftUserInfo = {
-        id: payloadData.providerId,
-        email: payloadData.email,
-        name: payloadData.name || '',
-        avatar_url: payloadData.avatar || '',
-      };
-      result = await authService.findOrCreateMicrosoftUser(microsoftUserInfo);
-    } else if (provider === 'discord') {
-      // Handle Discord OAuth payload
-      const discordUserInfo = {
-        id: payloadData.providerId,
-        username: payloadData.username || '',
-        email: payloadData.email,
-        avatar: payloadData.avatar || '',
-      };
-      result = await authService.findOrCreateDiscordUser(discordUserInfo);
-    } else if (provider === 'linkedin') {
-      // Handle LinkedIn OAuth payload
-      const linkedinUserInfo = {
-        sub: payloadData.providerId,
-        email: payloadData.email,
-        name: payloadData.name || '',
-        picture: payloadData.avatar || '',
-      };
-      result = await authService.findOrCreateLinkedInUser(linkedinUserInfo);
-    } else if (provider === 'facebook') {
-      // Handle Facebook OAuth payload
-      const facebookUserInfo = {
-        id: payloadData.providerId,
-        email: payloadData.email,
-        name: payloadData.name || '',
-        picture: payloadData.picture || { data: { url: payloadData.avatar || '' } },
-      };
-      result = await authService.findOrCreateFacebookUser(facebookUserInfo);
-    }
-
-    const finalredirectUri = new URL(redirectUri);
-    finalredirectUri.searchParams.set('access_token', result?.accessToken ?? '');
-    finalredirectUri.searchParams.set('user_id', result?.user.id ?? '');
-    finalredirectUri.searchParams.set('email', result?.user.email ?? '');
-    finalredirectUri.searchParams.set('name', result?.user.name ?? '');
-    res.redirect(finalredirectUri.toString());
-  } catch (error) {
-    logger.error('Shared OAuth callback error', { error });
-    next(error);
-  }
-});
-
-// GET /api/auth/oauth/:provider/callback - OAuth provider callback
-router.get('/:provider/callback', async (req: Request, res: Response, _: NextFunction) => {
-  try {
-    const { provider } = req.params;
-    const { code, state, token } = req.query;
-
-    let redirectUri = '/';
-
-    if (state) {
-      try {
-        const stateData = jwt.verify(
-          state as string,
-          process.env.JWT_SECRET || 'default_secret'
-        ) as {
-          provider: string;
-          redirectUri: string;
-        };
-        redirectUri = stateData.redirectUri || '/';
-      } catch {
-        // Invalid state
-      }
-    }
-
-    if (!['google', 'github', 'facebook', 'discord', 'linkedin', 'microsoft'].includes(provider)) {
-      throw new AppError('Invalid provider', 400, ERROR_CODES.INVALID_INPUT);
-    }
-
-    let result;
-
-    if (provider === 'facebook') {
-      if (!code) {
-        throw new AppError('No authorization code provided', 400, ERROR_CODES.INVALID_INPUT);
-      }
-
-      const accessToken = await authService.exchangeFacebookCodeForToken(code as string);
-      const facebookUserInfo = await authService.getFacebookUserInfo(accessToken);
-      result = await authService.findOrCreateFacebookUser(facebookUserInfo);
-    } else if (provider === 'google') {
-      let id_token: string;
-
-      if (token) {
-        id_token = token as string;
-      } else if (code) {
-        const tokens = await authService.exchangeCodeToTokenByGoogle(code as string);
-        id_token = tokens.id_token;
-      } else {
-        throw new AppError(
-          'No authorization code or token provided',
-          400,
-          ERROR_CODES.INVALID_INPUT
-        );
-      }
-
-      const googleUserInfo = await authService.verifyGoogleToken(id_token);
-      result = await authService.findOrCreateGoogleUser(googleUserInfo);
-    } else if (provider === 'github') {
-      if (!code) {
-        throw new AppError('No authorization code provided', 400, ERROR_CODES.INVALID_INPUT);
-      }
-
-      const accessToken = await authService.exchangeGitHubCodeForToken(code as string);
-      const githubUserInfo = await authService.getGitHubUserInfo(accessToken);
-      result = await authService.findOrCreateGitHubUser(githubUserInfo);
-    } else if (provider === 'microsoft') {
-      if (!code) {
-        throw new AppError('No authorization code provided', 400, ERROR_CODES.INVALID_INPUT);
-      }
-
-      const accessToken = await authService.exchangeCodeToTokenByMicrosoft(code as string);
-      const microsoftUserInfo = await authService.getMicrosoftUserInfo(accessToken.access_token);
-      result = await authService.findOrCreateMicrosoftUser(microsoftUserInfo);
-    } else if (provider === 'discord') {
-      if (!code) {
-        throw new AppError('No authorization code provided', 400, ERROR_CODES.INVALID_INPUT);
-      }
-
-      const accessToken = await authService.exchangeDiscordCodeForToken(code as string);
-      const discordUserInfo = await authService.getDiscordUserInfo(accessToken);
-      result = await authService.findOrCreateDiscordUser(discordUserInfo);
-    } else if (provider === 'linkedin') {
-      let id_token: string;
-
-      if (token) {
-        id_token = token as string;
-      } else if (code) {
-        const tokens = await authService.exchangeCodeToTokenByLinkedIn(code as string);
-        id_token = tokens.id_token;
-      } else {
-        throw new AppError(
-          'No authorization code or token provided',
-          400,
-          ERROR_CODES.INVALID_INPUT
-        );
-      }
-
-      const linkedinUserInfo = await authService.verifyLinkedInToken(id_token);
-      result = await authService.findOrCreateLinkedInUser(linkedinUserInfo);
-    }
-    // Create URL with JWT token and user info (like the working example)
-    const finalredirectUri = new URL(redirectUri);
-    finalredirectUri.searchParams.set('access_token', result?.accessToken ?? '');
-    finalredirectUri.searchParams.set('user_id', result?.user.id ?? '');
-    finalredirectUri.searchParams.set('email', result?.user.email ?? '');
-    finalredirectUri.searchParams.set('name', result?.user.name ?? '');
-
-    logger.info('OAuth callback successful, redirecting with token', {
-      redirectUri: finalredirectUri.toString(),
-      hasAccessToken: !!result?.accessToken,
-      userId: result?.user.id,
-    });
-
-    // Redirect directly to the app with token in URL
-    return res.redirect(finalredirectUri.toString());
-  } catch (error) {
-    logger.error('OAuth callback error', {
-      error: error instanceof Error ? error.message : error,
-      stack: error instanceof Error ? error.stack : undefined,
-      provider: req.params.provider,
-      hasCode: !!req.query.code,
-      hasState: !!req.query.state,
-      hasToken: !!req.query.token,
-    });
-
-    // Redirect to app with error message
-    const { state } = req.query;
-    const redirectUri = state
-      ? (() => {
-          try {
-            const stateData = JSON.parse(Buffer.from(state as string, 'base64').toString());
-            return stateData.redirectUri || '/';
-          } catch {
-            return '/';
-          }
-        })()
-      : '/';
-
-    const errorMessage = error instanceof Error ? error.message : 'OAuth authentication failed';
-
-    // Redirect with error in URL parameters
-    const errorredirectUri = new URL(redirectUri);
-    errorredirectUri.searchParams.set('error', errorMessage);
-
-    return res.redirect(errorredirectUri.toString());
-  }
-});
-
-// ============= OAuth Configuration Management Endpoints =============
-
+// OAuth Configuration Management Routes (must come before wildcard routes)
 // GET /api/auth/oauth/configs - List all OAuth configurations (admin only)
 router.get('/configs', verifyAdmin, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const configs = await oauthConfigService.getAllConfigs();
-
     const response: ListOAuthConfigsResponse = {
       data: configs,
       count: configs.length,
     };
-    successResponse(res, response);
+    res.json(response);
   } catch (error) {
-    logger.error('Failed to list OAuth configurations', { error });
+    logger.error('Failed to get OAuth configs', { error });
     next(error);
   }
 });
@@ -501,10 +127,7 @@ router.get(
   verifyAdmin,
   async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
-      const provider = req.params.provider;
-      if (!provider || provider.length === 0 || provider.length > 50) {
-        throw new AppError('Invalid provider name', 400, ERROR_CODES.INVALID_INPUT);
-      }
+      const { provider } = req.params;
       const config = await oauthConfigService.getConfigByProvider(provider);
       const clientSecret = await oauthConfigService.getClientSecretByProvider(provider);
 
@@ -516,9 +139,15 @@ router.get(
         );
       }
 
-      successResponse(res, { ...config, clientSecret });
+      res.json({
+        ...config,
+        clientSecret: clientSecret || undefined,
+      });
     } catch (error) {
-      logger.error('Failed to get OAuth configuration', { error, provider: req.params.provider });
+      logger.error('Failed to get OAuth config by provider', {
+        provider: req.params.provider,
+        error,
+      });
       next(error);
     }
   }
@@ -685,5 +314,232 @@ router.delete(
     }
   }
 );
+
+// OAuth Flow Routes
+// GET /api/auth/oauth/:provider - Initialize OAuth flow for any supported provider
+router.get('/:provider', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { provider } = req.params;
+    const { redirect_uri } = req.query;
+
+    // Validate provider using OAuthProvidersSchema
+    const providerValidation = oAuthProvidersSchema.safeParse(provider);
+    if (!providerValidation.success) {
+      throw new AppError(
+        `Unsupported OAuth provider: ${provider}. Supported providers: ${oAuthProvidersSchema.options.join(', ')}`,
+        400,
+        ERROR_CODES.INVALID_INPUT
+      );
+    }
+
+    const validatedProvider = providerValidation.data;
+
+    if (!redirect_uri) {
+      throw new AppError('Redirect URI is required', 400, ERROR_CODES.INVALID_INPUT);
+    }
+
+    // Validate and normalize the redirect origin
+    const validatedOrigin = validateRedirectOrigin(redirect_uri as string);
+
+    const jwtPayload = {
+      provider: validatedProvider,
+      origin: validatedOrigin, // Store only the validated origin, not full URL
+      createdAt: Date.now(),
+    };
+    const jwtSecret = validateJwtSecret();
+    const state = jwt.sign(jwtPayload, jwtSecret, {
+      algorithm: 'HS256',
+      expiresIn: '1h', // Set expiration time for the state token
+    });
+
+    const authUrl = await authService.generateAuthUrl(validatedProvider, state);
+
+    res.json({ authUrl });
+  } catch (error) {
+    logger.error(`${req.params.provider} OAuth error`, { error });
+
+    // If it's already an AppError, pass it through
+    if (error instanceof AppError) {
+      next(error);
+      return;
+    }
+
+    // For other errors, return the generic OAuth configuration error
+    next(
+      new AppError(
+        `${req.params.provider} OAuth is not properly configured. Please check your oauth configurations.`,
+        500,
+        ERROR_CODES.AUTH_OAUTH_CONFIG_ERROR
+      )
+    );
+  }
+});
+
+// GET /api/auth/oauth/shared/callback/:state - Shared callback for OAuth providers
+router.get('/shared/callback/:state', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { state } = req.params;
+    const { success, error, payload } = req.query;
+
+    if (!state) {
+      logger.warn('Shared OAuth callback called without state parameter');
+      throw new AppError('State parameter is required', 400, ERROR_CODES.INVALID_INPUT);
+    }
+
+    let origin: string;
+    let provider: string;
+    try {
+      const jwtSecret = validateJwtSecret();
+      const decodedState = jwt.verify(state, jwtSecret) as {
+        provider: string;
+        origin: string;
+      };
+      origin = decodedState.origin || '';
+      provider = decodedState.provider || '';
+    } catch {
+      logger.warn('Invalid state parameter', { state });
+      throw new AppError('Invalid state parameter', 400, ERROR_CODES.INVALID_INPUT);
+    }
+
+    // Validate provider using OAuthProvidersSchema
+    const providerValidation = oAuthProvidersSchema.safeParse(provider);
+    if (!providerValidation.success) {
+      logger.warn('Invalid provider in state', { provider });
+      throw new AppError(
+        `Invalid provider in state: ${provider}. Supported providers: ${oAuthProvidersSchema.options.join(', ')}`,
+        400,
+        ERROR_CODES.INVALID_INPUT
+      );
+    }
+    const validatedProvider = providerValidation.data;
+    if (!origin) {
+      throw new AppError('Origin is required', 400, ERROR_CODES.INVALID_INPUT);
+    }
+
+    if (success !== 'true') {
+      const errorMessage = error || 'OAuth authentication failed';
+      logger.warn('Shared OAuth callback failed', { error: errorMessage, provider });
+      clearAuthCookies(res);
+      return res.redirect(`${origin}/?error=${encodeURIComponent(String(errorMessage))}`);
+    }
+    if (!payload) {
+      throw new AppError('No payload provided in callback', 400, ERROR_CODES.INVALID_INPUT);
+    }
+
+    try {
+      const payloadData = JSON.parse(Buffer.from(payload as string, 'base64').toString('utf8'));
+      const result = await authService.handleOAuthCallback(validatedProvider, payloadData);
+
+      // Set secure cookies instead of URL parameters
+      setAuthCookies(res, result);
+
+      // Redirect to the validated origin without sensitive data in URL
+      res.redirect(`${origin}/?success=true`);
+    } catch (error) {
+      logger.error('OAuth callback processing failed', { error, provider });
+      clearAuthCookies(res);
+      res.redirect(`${origin}/?error=${encodeURIComponent('Authentication failed')}`);
+    }
+  } catch (error) {
+    logger.error('Shared OAuth callback error', { error });
+    next(error);
+  }
+});
+
+// GET /api/auth/oauth/:provider/callback - OAuth provider callback
+router.get('/:provider/callback', async (req: Request, res: Response, _: NextFunction) => {
+  try {
+    const { provider } = req.params;
+    const { code, state, token } = req.query;
+
+    let origin = process.env.DEFAULT_FRONTEND_ORIGIN || 'http://localhost:3000';
+
+    if (state) {
+      try {
+        const jwtSecret = validateJwtSecret();
+        const stateData = jwt.verify(state as string, jwtSecret) as {
+          provider: string;
+          origin: string;
+        };
+        origin = stateData.origin || origin;
+      } catch {
+        // Invalid state, use default origin
+        logger.warn('Invalid state in provider callback, using default origin', { state });
+      }
+    }
+
+    // Validate provider using OAuthProvidersSchema
+    const providerValidation = oAuthProvidersSchema.safeParse(provider);
+    if (!providerValidation.success) {
+      throw new AppError(
+        `Unsupported OAuth provider: ${provider}. Supported providers: ${oAuthProvidersSchema.options.join(', ')}`,
+        400,
+        ERROR_CODES.INVALID_INPUT
+      );
+    }
+
+    const validatedProvider = providerValidation.data;
+
+    try {
+      const result = await authService.handleOAuthCallback(validatedProvider, {
+        code: code as string | undefined,
+        token: token as string | undefined,
+      });
+
+      // Set secure cookies instead of URL parameters
+      setAuthCookies(res, result);
+
+      logger.info('OAuth callback successful, redirecting with secure cookies', {
+        origin,
+        hasAccessToken: !!result?.accessToken,
+        hasUserId: !!result?.user?.id,
+        provider: validatedProvider,
+      });
+
+      // Redirect to the validated origin without sensitive data in URL
+      return res.redirect(`${origin}/?success=true`);
+    } catch (error) {
+      logger.error('OAuth callback processing failed', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        provider: validatedProvider,
+        origin,
+      });
+      clearAuthCookies(res);
+      return res.redirect(`${origin}/?error=${encodeURIComponent('Authentication failed')}`);
+    }
+  } catch (error) {
+    logger.error('OAuth callback error', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      provider: req.params.provider,
+      hasCode: !!req.query.code,
+      hasState: !!req.query.state,
+      hasToken: !!req.query.token,
+    });
+
+    // Clear any authentication cookies on error
+    clearAuthCookies(res);
+
+    // Get origin from state or use default
+    let origin = process.env.DEFAULT_FRONTEND_ORIGIN || 'http://localhost:3000';
+    const { state } = req.query;
+
+    if (state) {
+      try {
+        const jwtSecret = validateJwtSecret();
+        const stateData = jwt.verify(state as string, jwtSecret) as {
+          origin: string;
+        };
+        origin = stateData.origin || origin;
+      } catch {
+        // Invalid state, use default origin
+      }
+    }
+
+    const errorMessage = error instanceof Error ? error.message : 'OAuth authentication failed';
+
+    // Redirect to validated origin with error message
+    return res.redirect(`${origin}/?error=${encodeURIComponent(errorMessage)}`);
+  }
+});
 
 export default router;

@@ -17,6 +17,7 @@ import type {
   CreateAdminSessionResponse,
   TokenPayloadSchema,
   AuthMetadataSchema,
+  OAuthProvidersSchema,
 } from '@insforge/shared-schemas';
 import { OAuthConfigService } from './oauth';
 import {
@@ -450,7 +451,7 @@ export class AuthService {
   /**
    * Generate Google OAuth authorization URL
    */
-  async generateGoogleAuthUrl(state?: string): Promise<string | undefined> {
+  async generateGoogleAuthUrl(state?: string): Promise<string> {
     const oauthConfigService = OAuthConfigService.getInstance();
     const config = await oauthConfigService.getConfigByProvider('google');
 
@@ -1019,7 +1020,7 @@ export class AuthService {
   /**
    * Generate LinkedIn OAuth authorization URL
    */
-  async generateLinkedInAuthUrl(state?: string): Promise<string | undefined> {
+  async generateLinkedInAuthUrl(state?: string): Promise<string> {
     const oauthConfigService = OAuthConfigService.getInstance();
     const config = await oauthConfigService.getConfigByProvider('linkedin');
 
@@ -1320,6 +1321,119 @@ export class AuthService {
     return {
       oauths: oAuthConfigs,
     };
+  }
+
+  /**
+   * Generate OAuth authorization URL for any supported provider
+   */
+  async generateAuthUrl(provider: OAuthProvidersSchema, state?: string): Promise<string> {
+    switch (provider) {
+      case 'google':
+        return this.generateGoogleAuthUrl(state);
+      case 'github':
+        return this.generateGitHubAuthUrl(state);
+      case 'discord':
+        return this.generateDiscordAuthUrl(state);
+      case 'linkedin':
+        return this.generateLinkedInAuthUrl(state);
+      default:
+        throw new Error(`OAuth provider ${provider} is not yet implemented`);
+    }
+  }
+
+  /**
+   * Handle OAuth callback for any supported provider
+   */
+  async handleOAuthCallback(
+    provider: OAuthProvidersSchema,
+    payload: { code?: string; token?: string; [key: string]: unknown }
+  ): Promise<CreateSessionResponse> {
+    switch (provider) {
+      case 'google':
+        return this.handleGoogleCallback(payload);
+      case 'github':
+        return this.handleGitHubCallback(payload);
+      case 'discord':
+        return this.handleDiscordCallback(payload);
+      case 'linkedin':
+        return this.handleLinkedInCallback(payload);
+      default:
+        throw new Error(`OAuth provider ${provider} is not yet implemented`);
+    }
+  }
+
+  /**
+   * Handle Google OAuth callback
+   */
+  private async handleGoogleCallback(payload: {
+    code?: string;
+    token?: string;
+  }): Promise<CreateSessionResponse> {
+    if (payload.token) {
+      const googleUserInfo = await this.verifyGoogleToken(payload.token);
+      return this.findOrCreateGoogleUser(googleUserInfo);
+    }
+
+    if (payload.code) {
+      const tokens = await this.exchangeCodeToTokenByGoogle(payload.code);
+      const googleUserInfo = await this.verifyGoogleToken(tokens.id_token);
+      return this.findOrCreateGoogleUser(googleUserInfo);
+    }
+
+    throw new Error('No authorization code or token provided');
+  }
+
+  /**
+   * Handle GitHub OAuth callback
+   */
+  private async handleGitHubCallback(payload: {
+    code?: string;
+    token?: string;
+  }): Promise<CreateSessionResponse> {
+    if (!payload.code) {
+      throw new Error('No authorization code provided');
+    }
+
+    const accessToken = await this.exchangeGitHubCodeForToken(payload.code);
+    const githubUserInfo = await this.getGitHubUserInfo(accessToken);
+    return this.findOrCreateGitHubUser(githubUserInfo);
+  }
+
+  /**
+   * Handle Discord OAuth callback
+   */
+  private async handleDiscordCallback(payload: {
+    code?: string;
+    token?: string;
+  }): Promise<CreateSessionResponse> {
+    if (!payload.code) {
+      throw new Error('No authorization code provided');
+    }
+
+    const accessToken = await this.exchangeDiscordCodeForToken(payload.code);
+    const discordUserInfo = await this.getDiscordUserInfo(accessToken);
+    return this.findOrCreateDiscordUser(discordUserInfo);
+  }
+
+  /**
+   * Handle LinkedIn OAuth callback
+   */
+  private async handleLinkedInCallback(payload: {
+    code?: string;
+    token?: string;
+  }): Promise<CreateSessionResponse> {
+    if (payload.token) {
+      const linkedinUserInfo = await this.verifyLinkedInToken(payload.token);
+      return this.findOrCreateLinkedInUser(linkedinUserInfo);
+    }
+
+    if (payload.code) {
+      const tokens = await this.exchangeCodeToTokenByLinkedIn(payload.code);
+      const linkedinUserInfo = await this.verifyLinkedInToken(tokens.id_token);
+      return this.findOrCreateLinkedInUser(linkedinUserInfo);
+    }
+
+    throw new Error('No authorization code or token provided');
   }
 
   /**
