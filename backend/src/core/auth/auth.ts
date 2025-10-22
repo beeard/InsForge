@@ -909,21 +909,13 @@ export class AuthService {
       mail?: string | null;
     };
 
-    const email = data.userPrincipalName || data.mail || `${data.id}@users.noreply.microsoft.com`;
-
-    const response = await fetch('https://graph.microsoft.com/v1.0/me/photo/$value', {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-    const blob = await response.blob();
-    const url = URL.createObjectURL(blob);
-    logger.info('Microsoft user avatar URL', { url });
+    const email = data.mail || `${data.id}@users.noreply.microsoft.com`;
 
     return {
       id: data.id,
       displayName: data.displayName || '',
       userPrincipalName: data.userPrincipalName || '',
       email,
-      avatar_url: url,
     };
   }
 
@@ -1164,7 +1156,7 @@ export class AuthService {
       const JWKS = createRemoteJWKSet(new URL('https://www.linkedin.com/oauth/openid/jwks'));
 
       const { payload } = await jwtVerify(idToken, JWKS, {
-        issuer: 'https://www.linkedin.com',
+        issuer: 'https://www.linkedin.com/oauth',
         audience: config.clientId,
       });
 
@@ -1343,7 +1335,7 @@ export class AuthService {
       case 'microsoft':
         return this.generateMicrosoftOAuthUrl(state);
       default:
-        throw new Error(`OAuth provider ${provider} is not yet implemented`);
+        throw new Error(`OAuth provider ${provider} is not implemented yet.`);
     }
   }
 
@@ -1368,7 +1360,7 @@ export class AuthService {
       case 'microsoft':
         return this.handleMicrosoftCallback(payload);
       default:
-        throw new Error(`OAuth provider ${provider} is not yet implemented`);
+        throw new Error(`OAuth provider ${provider} is not implemented yet.`);
     }
   }
 
