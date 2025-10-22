@@ -3,36 +3,13 @@ import { apiClient } from '@/lib/api/client';
 import { ColumnSchema } from '@insforge/shared-schemas';
 import { tableService } from './table.service';
 
-export interface CSVImportMetadata {
-  successCount: number;
-  failedCount: number;
-  failedRows: Array<{
-    rowNumber: number;
-    errors: string[];
-  }>;
-  totalFailedRows: number;
-  message: string;
-}
 export interface CSVImportResponse {
   success: boolean;
   message?: string;
-  data?: unknown;
-  csvImport?: {
-    successCount: number;
-    failedCount: number;
-    failedRows: Array<{
-      rowNumber: number;
-      errors: string[];
-    }>;
-    totalFailedRows: number;
+  data?: {
+    rowCount: number;
   };
-  rowErrors?: Array<{
-    rowNumber: number;
-    errors: string[];
-  }>;
-  totalRowErrors?: number;
-  validRowCount?: number;
-  errors?: string[];
+  error?: string; // For backend error messages
 }
 
 export class RecordService {
@@ -221,43 +198,21 @@ export class RecordService {
 
     const formData = new FormData();
     formData.append('file', file);
+    formData.append('table', tableName);
 
-    return apiClient.request(`/database/records/import/${tableName}`, {
+    const response = await apiClient.request(`/database/advance/bulk-upsert`, {
       method: 'POST',
       headers: apiClient.withAccessToken(),
       body: formData,
     });
-  }
-
-  async downloadSampleCSV(tableName: string): Promise<void> {
-    try {
-      const token = apiClient.getToken();
-      const endpoint = `/api/database/records/_meta/sample/${tableName}`;
-
-      const response = await fetch(endpoint, {
-        method: 'GET',
-        headers: {
-          ...(token && { Authorization: `Bearer ${token}` }),
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to download sample CSV: ${response.statusText}`);
-      }
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${tableName}_sample.csv`;
-
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-    } catch (error) {
-      throw new Error(error instanceof Error ? error.message : 'Failed to download sample CSV');
-    }
+    return {
+      success: response.success,
+      message: response.message,
+      data: {
+        rowCount: response.rowsAffected,
+      },
+      error: response.error,
+    };
   }
 }
 

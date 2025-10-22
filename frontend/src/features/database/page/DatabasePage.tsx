@@ -64,33 +64,6 @@ function DatabasePageContent() {
 
   const { socket, isConnected } = useSocket();
 
-  const {
-    mutate: importCSV,
-    isPending: isImporting,
-    reset: resetImport,
-  } = useCSVImport(selectedTable || '', {
-    onSuccess: (data) => {
-      if (data.success) {
-        showToast(data.message || 'Import successful!', 'success');
-        void refetchTableData();
-        void refetchTables();
-      } else {
-        // This case handles validation errors returned with a 200 OK but success: false
-        const errorMessage =
-          data.message || 'CSV import failed due to validation errors. Please check the file.';
-        showToast(errorMessage, 'error');
-      }
-      resetImport();
-    },
-    onError: (error: Error) => {
-      // This handles 400/500 errors from the API client
-      const message =
-        error?.message || 'An unexpected error occurred during import. Please try again.';
-      showToast(message, 'error');
-      resetImport();
-    },
-  });
-
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file && selectedTable) {
@@ -147,6 +120,33 @@ function DatabasePageContent() {
   const primaryKeyColumn = useMemo(() => {
     return schemaData?.columns.find((col) => col.isPrimaryKey)?.columnName;
   }, [schemaData]);
+
+  const {
+    mutate: importCSV,
+    isPending: isImporting,
+    reset: resetImport,
+  } = useCSVImport(selectedTable || '', {
+    onSuccess: (data) => {
+      if (data.success) {
+        showToast(data.message || 'Import successful!', 'success');
+        void refetchTableData();
+        void refetchTables();
+      } else {
+        // This case handles validation errors returned with a 200 OK but success: false
+        const errorMessage =
+          data.message || 'CSV import failed due to validation errors. Please check the file.';
+        showToast(errorMessage, 'error');
+      }
+      resetImport();
+    },
+    onError: (error: Error) => {
+      // This handles 400/500 errors from the API client
+      const message =
+        error?.message || 'An unexpected error occurred during import. Please try again.';
+      showToast(message, 'error');
+      resetImport();
+    },
+  });
 
   // Fetch table records using the hook
   const offset = (currentPage - 1) * PAGE_SIZE;
