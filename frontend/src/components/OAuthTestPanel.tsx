@@ -1,12 +1,18 @@
 import React, { useState } from 'react';
-import { Button } from './ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { Input } from './ui/input';
-import { Label } from './ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Badge } from './ui/badge';
+import { Button } from '@/components/radix/Button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/radix/Card';
+import { Input } from '@/components/radix/Input';
+import { Label } from '@/components/radix/Label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/radix/Select';
+import { Badge } from '@/components/radix/Badge';
 import { CheckCircle, XCircle, ExternalLink, Copy } from 'lucide-react';
-import { toast } from './ui/use-toast';
+import { useToast } from '@/lib/hooks/useToast';
 
 interface OAuthTestResult {
   provider: string;
@@ -36,6 +42,7 @@ export const OAuthTestPanel: React.FC = () => {
   const [state, setState] = useState<string>('');
   const [testResults, setTestResults] = useState<OAuthTestResult[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const { showToast } = useToast();
 
   const generateRandomState = () => {
     const randomState = `test-state-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
@@ -79,11 +86,7 @@ export const OAuthTestPanel: React.FC = () => {
 
   const testSelectedProvider = async () => {
     if (!selectedProvider) {
-      toast({
-        title: 'Error',
-        description: 'Please select a provider to test',
-        variant: 'destructive',
-      });
+      showToast('Please select a provider to test', 'error');
       return;
     }
 
@@ -113,11 +116,8 @@ export const OAuthTestPanel: React.FC = () => {
   };
 
   const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    toast({
-      title: 'Copied',
-      description: 'URL copied to clipboard',
-    });
+    void navigator.clipboard.writeText(text);
+    showToast('URL copied to clipboard', 'info');
   };
 
   const openInNewTab = (url: string) => {
@@ -157,7 +157,7 @@ export const OAuthTestPanel: React.FC = () => {
             <Input
               id="redirectUri"
               value={redirectUri}
-              onChange={(e) => setRedirectUri(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRedirectUri(e.target.value)}
               placeholder="http://localhost:3000/callback"
             />
           </div>
@@ -169,10 +169,15 @@ export const OAuthTestPanel: React.FC = () => {
               <Input
                 id="state"
                 value={state}
-                onChange={(e) => setState(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setState(e.target.value)}
                 placeholder="Optional state parameter"
               />
-              <Button type="button" variant="outline" onClick={generateRandomState} size="sm">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => generateRandomState()}
+                size="sm"
+              >
                 Generate
               </Button>
             </div>
@@ -180,10 +185,13 @@ export const OAuthTestPanel: React.FC = () => {
 
           {/* Action Buttons */}
           <div className="flex gap-2">
-            <Button onClick={testSelectedProvider} disabled={isLoading || !selectedProvider}>
+            <Button
+              onClick={() => void testSelectedProvider()}
+              disabled={isLoading || !selectedProvider}
+            >
               {isLoading ? 'Testing...' : 'Test Selected Provider'}
             </Button>
-            <Button onClick={testAllProviders} disabled={isLoading} variant="outline">
+            <Button onClick={() => void testAllProviders()} disabled={isLoading} variant="outline">
               {isLoading ? 'Testing All...' : 'Test All Providers'}
             </Button>
           </div>
@@ -232,14 +240,14 @@ export const OAuthTestPanel: React.FC = () => {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => copyToClipboard(result.authUrl!)}
+                          onClick={() => copyToClipboard(result.authUrl ?? '')}
                         >
                           <Copy className="w-4 h-4" />
                         </Button>
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => openInNewTab(result.authUrl!)}
+                          onClick={() => openInNewTab(result.authUrl ?? '')}
                         >
                           <ExternalLink className="w-4 h-4" />
                         </Button>
@@ -293,7 +301,7 @@ export const OAuthTestPanel: React.FC = () => {
           </p>
           <ul className="list-disc list-inside ml-4 space-y-1">
             <li>Generating an OAuth URL</li>
-            <li>Clicking the "Open in New Tab" button</li>
+            <li>Clicking the &quot;Open in New Tab&quot; button</li>
             <li>Completing the OAuth flow with the provider</li>
             <li>Verifying the callback handling</li>
           </ul>
