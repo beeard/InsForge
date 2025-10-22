@@ -51,7 +51,7 @@ export async function verifyCloudToken(
 
     // Wrap other JWT errors
     throw new AppError(
-      `Invalid admin credentials: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      `Invalid cloud authorization code: ${error instanceof Error ? error.message : 'Unknown error'}`,
       401,
       ERROR_CODES.AUTH_INVALID_CREDENTIALS,
       NEXT_ACTION.CHECK_TOKEN
