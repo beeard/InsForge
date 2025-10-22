@@ -4,7 +4,6 @@ import { isCloudEnvironment } from '@/utils/environment.js';
 import logger from '@/utils/logger.js';
 import { SecretService } from '@/core/secrets/secrets';
 import { OAuthConfigService } from '@/core/auth/oauth.js';
-import { OAuthProvidersSchema } from '@insforge/shared-schemas';
 
 /**
  * Validates admin credentials are configured
@@ -55,7 +54,7 @@ async function seedDefaultAIConfigs(): Promise<void> {
 }
 
 /**
- * Seeds default OAuth configurations for supported providers
+ * Seeds default OAuth configurations for Google and GitHub
  */
 async function seedDefaultOAuthConfigs(): Promise<void> {
   const oauthService = OAuthConfigService.getInstance();
@@ -65,17 +64,22 @@ async function seedDefaultOAuthConfigs(): Promise<void> {
     const existingConfigs = await oauthService.getAllConfigs();
     const existingProviders = existingConfigs.map((config) => config.provider.toLowerCase());
 
-    // Default providers to seed
-    const defaultProviders: OAuthProvidersSchema[] = ['google', 'github'];
+    // Seed Google OAuth config if not exists
+    if (!existingProviders.includes('google')) {
+      await oauthService.createConfig({
+        provider: 'google',
+        useSharedKey: true,
+      });
+      logger.info('✅ Default Google OAuth config created');
+    }
 
-    for (const provider of defaultProviders) {
-      if (!existingProviders.includes(provider)) {
-        await oauthService.createConfig({
-          provider,
-          useSharedKey: true,
-        });
-        logger.info(`✅ Default ${provider} OAuth config created`);
-      }
+    // Seed GitHub OAuth config if not exists
+    if (!existingProviders.includes('github')) {
+      await oauthService.createConfig({
+        provider: 'github',
+        useSharedKey: true,
+      });
+      logger.info('✅ Default GitHub OAuth config created');
     }
   } catch (error) {
     logger.warn('Failed to seed OAuth configs', {
@@ -96,47 +100,34 @@ async function seedLocalOAuthConfigs(): Promise<void> {
     const existingConfigs = await oauthService.getAllConfigs();
     const existingProviders = existingConfigs.map((config) => config.provider.toLowerCase());
 
-    // Environment variable mappings for OAuth providers
-    const envMappings: Array<{
-      provider: OAuthProvidersSchema;
-      clientIdEnv: string;
-      clientSecretEnv: string;
-    }> = [
-      {
+    // Seed Google OAuth config from environment variables if credentials exist
+    const googleClientId = process.env.GOOGLE_CLIENT_ID;
+    const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
+
+    if (googleClientId && googleClientSecret && !existingProviders.includes('google')) {
+      await oauthService.createConfig({
         provider: 'google',
-        clientIdEnv: 'GOOGLE_CLIENT_ID',
-        clientSecretEnv: 'GOOGLE_CLIENT_SECRET',
-      },
-      {
+        clientId: googleClientId,
+        clientSecret: googleClientSecret,
+        scopes: ['openid', 'email', 'profile'],
+        useSharedKey: false,
+      });
+      logger.info('✅ Google OAuth config loaded from environment variables');
+    }
+
+    // Seed GitHub OAuth config from environment variables if credentials exist
+    const githubClientId = process.env.GITHUB_CLIENT_ID;
+    const githubClientSecret = process.env.GITHUB_CLIENT_SECRET;
+
+    if (githubClientId && githubClientSecret && !existingProviders.includes('github')) {
+      await oauthService.createConfig({
         provider: 'github',
-        clientIdEnv: 'GITHUB_CLIENT_ID',
-        clientSecretEnv: 'GITHUB_CLIENT_SECRET',
-      },
-      {
-        provider: 'discord',
-        clientIdEnv: 'DISCORD_CLIENT_ID',
-        clientSecretEnv: 'DISCORD_CLIENT_SECRET',
-      },
-      {
-        provider: 'linkedin',
-        clientIdEnv: 'LINKEDIN_CLIENT_ID',
-        clientSecretEnv: 'LINKEDIN_CLIENT_SECRET',
-      },
-    ];
-
-    for (const { provider, clientIdEnv, clientSecretEnv } of envMappings) {
-      const clientId = process.env[clientIdEnv];
-      const clientSecret = process.env[clientSecretEnv];
-
-      if (clientId && clientSecret && !existingProviders.includes(provider)) {
-        await oauthService.createConfig({
-          provider,
-          clientId,
-          clientSecret,
-          useSharedKey: false,
-        });
-        logger.info(`✅ ${provider} OAuth config loaded from environment variables`);
-      }
+        clientId: githubClientId,
+        clientSecret: githubClientSecret,
+        scopes: ['user:email'],
+        useSharedKey: false,
+      });
+      logger.info('✅ GitHub OAuth config loaded from environment variables');
     }
   } catch (error) {
     logger.warn('Failed to seed local OAuth configs', {

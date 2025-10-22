@@ -19,7 +19,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/radix/DropdownMenu';
-import { OAuthProvidersSchema } from '@insforge/shared-schemas';
 
 const providers: OAuthProviderInfo[] = [
   {
@@ -67,7 +66,7 @@ const providers: OAuthProviderInfo[] = [
 ];
 
 export interface OAuthProviderInfo {
-  id: OAuthProvidersSchema;
+  id: 'google' | 'github' | 'discord' | 'linkedin' | 'facebook' | 'microsoft';
   name: string;
   icon: ReactElement;
   description: string;
@@ -93,7 +92,10 @@ export function AuthMethodTab() {
     setIsDialogOpen(true);
   };
 
-  const deleteOAuthConfig = async (providerId: OAuthProvidersSchema, providerName: string) => {
+  const deleteOAuthConfig = async (
+    providerId: 'google' | 'github' | 'linkedin' | 'discord' | 'facebook' | 'microsoft',
+    providerName: string
+  ) => {
     const shouldDelete = await confirm({
       title: `Delete ${providerName} OAuth`,
       description: `Are you sure you want to delete the ${providerName} configuration? This action cannot be undone.`,
@@ -125,14 +127,14 @@ export function AuthMethodTab() {
   };
 
   const enabledProviders = useMemo(() => {
-    const enabled: Record<OAuthProvidersSchema, boolean> = {} as Record<
-      OAuthProvidersSchema,
-      boolean
-    >;
-    providers.forEach((provider) => {
-      enabled[provider.id] = isProviderConfigured(provider.id);
-    });
-    return enabled;
+    return {
+      google: isProviderConfigured('google'),
+      github: isProviderConfigured('github'),
+      discord: isProviderConfigured('discord'),
+      linkedin: isProviderConfigured('linkedin'),
+      microsoft: isProviderConfigured('microsoft'),
+      facebook: isProviderConfigured('facebook'),
+    };
   }, [isProviderConfigured]);
 
   // Check if all providers are enabled
@@ -140,7 +142,9 @@ export function AuthMethodTab() {
     return providers.every((provider) => enabledProviders[provider.id]);
   }, [enabledProviders]);
 
-  const handleConfirmSelected = (selectedId: OAuthProvidersSchema) => {
+  const handleConfirmSelected = (
+    selectedId: 'google' | 'github' | 'discord' | 'linkedin' | 'facebook' | 'microsoft'
+  ) => {
     // Find the selected provider
     const selectedProvider = providers.find((p) => p.id === selectedId);
     if (!selectedProvider) {

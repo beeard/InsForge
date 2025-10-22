@@ -130,30 +130,20 @@ export const getOauthUrlResponseSchema = z.object({
 /**
  * POST /api/auth/oauth/configs - Create OAuth configuration
  */
-export const createOAuthConfigRequestSchema = oAuthConfigSchema
-  .omit({
-    id: true,
-    createdAt: true,
-    updatedAt: true,
-  })
-  .extend({
-    clientSecret: z.string().optional(),
-  });
+export const createOAuthConfigRequestSchema = oAuthConfigSchema.extend({
+  clientSecret: z.string().optional(),
+});
 
 /**
  * PUT /api/auth/oauth/configs/:provider - Update OAuth configuration
  */
 export const updateOAuthConfigRequestSchema = oAuthConfigSchema
-  .omit({
-    id: true,
-    provider: true,
-    createdAt: true,
-    updatedAt: true,
-  })
   .extend({
     clientSecret: z.string().optional(),
   })
-  .partial();
+  .omit({
+    provider: true,
+  });
 
 /**
  * Response for GET /api/auth/oauth/configs
