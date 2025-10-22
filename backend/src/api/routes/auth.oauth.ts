@@ -428,12 +428,13 @@ router.get('/shared/callback/:state', async (req: Request, res: Response, next: 
       }
     }
 
-    const finalredirectUri = new URL(redirectUri);
-    finalredirectUri.searchParams.set('access_token', result?.accessToken ?? '');
-    finalredirectUri.searchParams.set('user_id', result?.user.id ?? '');
-    finalredirectUri.searchParams.set('email', result?.user.email ?? '');
-    finalredirectUri.searchParams.set('name', result?.user.name ?? '');
-    res.redirect(finalredirectUri.toString());
+    const params = new URLSearchParams();
+    params.set('access_token', result?.accessToken ?? '');
+    params.set('user_id', result?.user.id ?? '');
+    params.set('email', result?.user.email ?? '');
+    params.set('name', result?.user.name ?? '');
+
+    res.redirect(`${redirectUri}?${params.toString()}`);
   } catch (error) {
     logger.error('Shared OAuth callback error', { error });
     next(error);
@@ -441,88 +442,92 @@ router.get('/shared/callback/:state', async (req: Request, res: Response, next: 
 });
 
 // GET /api/auth/oauth/:provider/callback - OAuth provider callback
-router.get('/:provider/callback', async (req: Request, res: Response, _: NextFunction) => {
+router.get('/:provider/callback', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { provider } = req.params;
     const { code, state, token } = req.query;
 
-    let redirectUri = '/';
+    if (!state) {
+      logger.warn('OAuth callback called without state parameter');
+      throw new AppError('State parameter is required', 400, ERROR_CODES.INVALID_INPUT);
+    }
 
-    if (state) {
-      try {
-        const jwtSecret = validateJwtSecret();
-        const stateData = jwt.verify(state as string, jwtSecret) as {
-          provider: string;
-          redirectUri: string;
-        };
-        redirectUri = stateData.redirectUri || '/';
-      } catch {
-        // Invalid state, use default redirectUri
-        logger.warn('Invalid state in provider callback', { state });
+    // Decode redirectUri from state (needed for both success and error paths)
+    let redirectUri: string;
+
+    try {
+      const jwtSecret = validateJwtSecret();
+      const stateData = jwt.verify(state as string, jwtSecret) as {
+        provider: string;
+        redirectUri: string;
+      };
+      redirectUri = stateData.redirectUri || '';
+    } catch {
+      // Invalid state
+      logger.warn('Invalid state in provider callback', { state });
+      throw new AppError('Invalid state parameter', 400, ERROR_CODES.INVALID_INPUT);
+    }
+
+    if (!redirectUri) {
+      throw new AppError('redirectUri is required', 400, ERROR_CODES.INVALID_INPUT);
+    }
+
+    try {
+      // Validate provider using OAuthProvidersSchema
+      const providerValidation = oAuthProvidersSchema.safeParse(provider);
+      if (!providerValidation.success) {
+        throw new AppError(
+          `Unsupported OAuth provider: ${provider}. Supported providers: ${oAuthProvidersSchema.options.join(', ')}`,
+          400,
+          ERROR_CODES.INVALID_INPUT
+        );
       }
+
+      const validatedProvider = providerValidation.data;
+
+      const result = await authService.handleOAuthCallback(validatedProvider, {
+        code: code as string | undefined,
+        token: token as string | undefined,
+      });
+
+      // Construct redirect URL with query parameters
+      const params = new URLSearchParams();
+      params.set('access_token', result?.accessToken ?? '');
+      params.set('user_id', result?.user.id ?? '');
+      params.set('email', result?.user.email ?? '');
+      params.set('name', result?.user.name ?? '');
+
+      const finalRedirectUri = `${redirectUri}?${params.toString()}`;
+
+      logger.info('OAuth callback successful, redirecting with token', {
+        redirectUri: finalRedirectUri,
+        hasAccessToken: !!result?.accessToken,
+        hasUserId: !!result?.user?.id,
+        provider: validatedProvider,
+      });
+
+      return res.redirect(finalRedirectUri);
+    } catch (error) {
+      logger.error('OAuth callback error', {
+        error: error instanceof Error ? error.message : error,
+        stack: error instanceof Error ? error.stack : undefined,
+        provider: req.params.provider,
+        hasCode: !!req.query.code,
+        hasState: !!req.query.state,
+        hasToken: !!req.query.token,
+      });
+
+      const errorMessage = error instanceof Error ? error.message : 'OAuth Authentication Failed';
+
+      // Redirect with error in URL parameters
+      const params = new URLSearchParams();
+      params.set('error', errorMessage);
+
+      return res.redirect(`${redirectUri}?${params.toString()}`);
     }
-
-    // Validate provider using OAuthProvidersSchema
-    const providerValidation = oAuthProvidersSchema.safeParse(provider);
-    if (!providerValidation.success) {
-      throw new AppError(
-        `Unsupported OAuth provider: ${provider}. Supported providers: ${oAuthProvidersSchema.options.join(', ')}`,
-        400,
-        ERROR_CODES.INVALID_INPUT
-      );
-    }
-
-    const validatedProvider = providerValidation.data;
-
-    const result = await authService.handleOAuthCallback(validatedProvider, {
-      code: code as string | undefined,
-      token: token as string | undefined,
-    });
-
-    const finalredirectUri = new URL(redirectUri);
-    finalredirectUri.searchParams.set('access_token', result?.accessToken ?? '');
-    finalredirectUri.searchParams.set('user_id', result?.user.id ?? '');
-    finalredirectUri.searchParams.set('email', result?.user.email ?? '');
-    finalredirectUri.searchParams.set('name', result?.user.name ?? '');
-
-    logger.info('OAuth callback successful, redirecting with token', {
-      redirectUri: finalredirectUri.toString(),
-      hasAccessToken: !!result?.accessToken,
-      hasUserId: !!result?.user?.id,
-      provider: validatedProvider,
-    });
-
-    return res.redirect(finalredirectUri.toString());
   } catch (error) {
-    logger.error('OAuth callback error', {
-      error: error instanceof Error ? error.message : error,
-      stack: error instanceof Error ? error.stack : undefined,
-      provider: req.params.provider,
-      hasCode: !!req.query.code,
-      hasState: !!req.query.state,
-      hasToken: !!req.query.token,
-    });
-
-    // Redirect to app with error message
-    const { state } = req.query;
-    const redirectUri = state
-      ? (() => {
-          try {
-            const stateData = JSON.parse(Buffer.from(state as string, 'base64').toString());
-            return stateData.redirectUri || '/';
-          } catch {
-            return '/';
-          }
-        })()
-      : '/';
-
-    const errorMessage = error instanceof Error ? error.message : 'OAuth Authentication Failed';
-
-    // Redirect with error in URL parameters
-    const errorredirectUri = new URL(redirectUri);
-    errorredirectUri.searchParams.set('error', errorMessage);
-
-    return res.redirect(errorredirectUri.toString());
+    logger.error('OAuth callback error', { error });
+    next(error);
   }
 });
 
