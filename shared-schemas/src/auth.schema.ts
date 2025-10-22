@@ -75,14 +75,11 @@ export const oAuthStateSchema = z.object({
 
 // OAuth provider configuration schema
 export const oAuthConfigSchema = z.object({
-  id: z.string().uuid(),
-  provider: oAuthProvidersSchema,
+  provider: z.string(),
   clientId: z.string().optional(),
   scopes: z.array(z.string()).optional(),
   redirectUri: z.string().optional(),
   useSharedKey: z.boolean(),
-  createdAt: z.string(), // PostgreSQL timestamp
-  updatedAt: z.string(), // PostgreSQL timestamp
 });
 
 /**

@@ -15,11 +15,7 @@ import {
 } from '@/components/radix/Dialog';
 import WarningIcon from '@/assets/icons/warning.svg';
 import { CopyButton } from '@/components/CopyButton';
-import {
-  oAuthConfigSchema,
-  OAuthConfigSchema,
-  OAuthProvidersSchema,
-} from '@insforge/shared-schemas';
+import { oAuthConfigSchema, OAuthConfigSchema } from '@insforge/shared-schemas';
 import { OAuthProviderInfo } from './AuthMethodTab';
 import { useOAuthConfig } from '@/features/auth/hooks/useOAuthConfig';
 import { getBackendUrl, isInsForgeCloudProject } from '@/lib/utils/utils';
@@ -68,16 +64,9 @@ export function OAuthConfigDialog({
   const clientSecret = form.watch('clientSecret');
 
   // Our Cloud only support shared keys of these OAuth Providers for now
-  // These are a subset of oAuthProvidersSchema.options
-  const sharedKeyProviders: readonly OAuthProvidersSchema[] = [
-    'google',
-    'github',
-    'discord',
-    'linkedin',
-    'facebook',
-  ] satisfies readonly OAuthProvidersSchema[];
   const isSharedKeysAvailable =
-    isInsForgeCloudProject() && provider?.id && sharedKeyProviders.includes(provider.id);
+    isInsForgeCloudProject() &&
+    ['google', 'github', 'discord', 'linkedin', 'facebook'].includes(provider?.id ?? '');
 
   // Use useFormState hook for better reactivity
   const { isDirty } = useFormState({
