@@ -82,22 +82,13 @@ const setAuthCookies = (res: Response, result: AuthResult) => {
   const cookieOptions = {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax' as const,
+    sameSite: 'none' as const, // 'none' required for cross-origin OAuth flows with CORS credentials
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
     path: '/',
   };
 
   if (result?.accessToken) {
     res.cookie('access_token', result.accessToken, cookieOptions);
-  }
-  if (result?.user?.id) {
-    res.cookie('user_id', result.user.id, cookieOptions);
-  }
-  if (result?.user?.email) {
-    res.cookie('user_email', result.user.email, cookieOptions);
-  }
-  if (result?.user?.name) {
-    res.cookie('user_name', result.user.name, cookieOptions);
   }
 };
 
@@ -106,54 +97,12 @@ const clearAuthCookies = (res: Response) => {
   const cookieOptions = {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax' as const,
+    sameSite: 'none' as const, // 'none' required for cross-origin OAuth flows with CORS credentials
     maxAge: 0,
     path: '/',
   };
 
   res.cookie('access_token', '', cookieOptions);
-  res.cookie('user_id', '', cookieOptions);
-  res.cookie('user_email', '', cookieOptions);
-  res.cookie('user_name', '', cookieOptions);
-};
-
-// Helper function to sanitize logging data
-const _sanitizeLogData = (data: unknown): unknown => {
-  if (typeof data !== 'object' || data === null) {
-    return data;
-  }
-
-  const sanitized: Record<string, unknown> = { ...(data as Record<string, unknown>) };
-  const sensitiveKeys = [
-    'accessToken',
-    'access_token',
-    'token',
-    'password',
-    'secret',
-    'email',
-    'name',
-    'userId',
-    'user_id',
-  ];
-
-  for (const key of sensitiveKeys) {
-    if (key in sanitized) {
-      if (typeof sanitized[key] === 'string' && (sanitized[key] as string).length > 0) {
-        sanitized[key] = '[REDACTED]';
-      } else if (typeof sanitized[key] === 'boolean') {
-        sanitized[key] = (sanitized[key] as boolean) ? '[PRESENT]' : '[ABSENT]';
-      }
-    }
-  }
-
-  // Recursively sanitize nested objects
-  for (const key in sanitized) {
-    if (typeof sanitized[key] === 'object' && sanitized[key] !== null) {
-      sanitized[key] = _sanitizeLogData(sanitized[key]);
-    }
-  }
-
-  return sanitized;
 };
 
 // OAuth Configuration Management Routes (must come before wildcard routes)
