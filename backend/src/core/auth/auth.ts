@@ -362,7 +362,9 @@ export class AuthService {
     }
 
     await this.db
-      .prepare('UPDATE _accounts SET email_verified = true, otp_code = NULL, otp_code_expires_at = NULL WHERE email = ?')
+      .prepare(
+        'UPDATE _accounts SET email_verified = true, otp_code = NULL, otp_code_expires_at = NULL WHERE email = ?'
+      )
       .run(email);
 
     dbUser.email_verified = true;
