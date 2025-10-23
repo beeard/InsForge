@@ -88,7 +88,7 @@ update_response=$(curl -s -w "\n%{http_code}" -X PUT "$API_BASE/functions/$FUNCT
     -H "Content-Type: application/json" \
     -d '{
         "code": "export default async function handler(req) { return new Response(\"Updated\"); }",
-        "status": "inactive"
+        "status": "draft"
     }')
 
 status=$(echo "$update_response" | tail -n 1)

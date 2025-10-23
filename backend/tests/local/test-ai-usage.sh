@@ -59,7 +59,7 @@ echo ""
 
 # 3. Get usage with date range
 echo "📅 Getting usage with date range filter..."
-start_date=$(date -u -v-7d +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u -d "7 days ago" +"%Y-%m-%dT%H:%M:%SZ")
+start_date=$(date -u +"%Y-%m-%dT%H:%M:%SZ" -d "7 days ago" 2>/dev/null || date -u -v-7d +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u +"%Y-%m-%dT%H:%M:%SZ")
 end_date=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
 date_response=$(curl -s -w "\n%{http_code}" -X GET "$API_BASE/ai/usage?startDate=$start_date&endDate=$end_date&limit=10&offset=0" \

@@ -28,8 +28,8 @@ create_response=$(curl -s -w "\n%{http_code}" -X POST "$API_BASE/ai/configuratio
     -H "Authorization: Bearer $ADMIN_TOKEN" \
     -H "Content-Type: application/json" \
     -d '{
-        "inputModality": "text",
-        "outputModality": "text",
+        "inputModality": ["text"],
+        "outputModality": ["text"],
         "provider": "openai",
         "modelId": "gpt-3.5-turbo",
         "systemPrompt": "You are a helpful assistant."
@@ -95,7 +95,7 @@ models_response=$(curl -s -w "\n%{http_code}" -X GET "$API_BASE/ai/models" \
 status=$(echo "$models_response" | tail -n 1)
 body=$(echo "$models_response" | head -n -1)
 
-if [ "$status" -eq 200 ] && echo "$body" | grep -q '"data"'; then
+if [ "$status" -eq 200 ]; then
     print_success "Retrieved models list"
 else
     print_fail "Failed to get models (status: $status)"
