@@ -865,7 +865,7 @@ export class AuthService {
       throw new Error('Microsoft OAuth not configured');
     }
     const clientSecret = await oauthConfigService.getClientSecretByProvider('microsoft');
-    const selfBaseUrl = process.env.API_BASE_URL || 'http://localhost:7130';
+    const selfBaseUrl = getApiBaseUrl();
 
     const body = new URLSearchParams({
       client_id: config.clientId ?? '',
@@ -1022,7 +1022,7 @@ export class AuthService {
       throw new Error('LinkedIn OAuth not configured');
     }
 
-    const selfBaseUrl = process.env.API_BASE_URL || 'http://localhost:7130';
+    const selfBaseUrl = getApiBaseUrl();
 
     if (config?.useSharedKey) {
       if (!state) {
@@ -1092,7 +1092,7 @@ export class AuthService {
       });
 
       const clientSecret = await oauthConfigService.getClientSecretByProvider('linkedin');
-      const selfBaseUrl = process.env.API_BASE_URL || 'http://localhost:7130';
+      const selfBaseUrl = getApiBaseUrl();
       const response = await axios.post(
         'https://www.linkedin.com/oauth/v2/accessToken',
         new URLSearchParams({
@@ -1449,7 +1449,7 @@ export class AuthService {
       throw new AppError('No authorization code provided', 400, ERROR_CODES.INVALID_INPUT);
     }
 
-    const accessToken = await this.exchangeFacebookCodeForToken(payload.code as string);
+    const accessToken = await this.exchangeFacebookCodeForToken(payload.code);
     const facebookUserInfo = await this.getFacebookUserInfo(accessToken);
     return this.findOrCreateFacebookUser(facebookUserInfo);
   }
@@ -1465,7 +1465,7 @@ export class AuthService {
       throw new AppError('No authorization code provided', 400, ERROR_CODES.INVALID_INPUT);
     }
 
-    const accessToken = await this.exchangeCodeToTokenByMicrosoft(payload.code as string);
+    const accessToken = await this.exchangeCodeToTokenByMicrosoft(payload.code);
     const microsoftUserInfo = await this.getMicrosoftUserInfo(accessToken.access_token);
     return this.findOrCreateMicrosoftUser(microsoftUserInfo);
   }

@@ -9,7 +9,7 @@ import {
 } from '@/components/radix/Dialog';
 import { OAuthProviderInfo } from './AuthMethodTab';
 import { cn } from '@/lib/utils/utils';
-import { OAuthProvidersSchema } from '@insforge/shared-schemas';
+import type { OAuthProvidersSchema } from '@insforge/shared-schemas';
 
 interface AddOAuthDialogProps {
   providers: OAuthProviderInfo[];

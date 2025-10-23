@@ -19,7 +19,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/radix/DropdownMenu';
-import { OAuthProvidersSchema } from '@insforge/shared-schemas';
+import type { OAuthProvidersSchema } from '@insforge/shared-schemas';
 
 const providers: OAuthProviderInfo[] = [
   {
