@@ -255,7 +255,7 @@ export class AuthService {
           codeLength++;
           verificationCode = generateNumericCode(codeLength);
           logger.warn(`Verification code conflict, retrying with ${codeLength} digits`, {
-            email,
+            dbUserId: dbUser.id,
             attempt: retries + 1,
           });
         } else {
@@ -334,7 +334,7 @@ export class AuthService {
           codeLength++;
           verificationCode = generateNumericCode(codeLength);
           logger.warn(`Verification code conflict, retrying with ${codeLength} digits`, {
-            email,
+            dbUserId: dbUser.id,
             attempt: retries + 1,
           });
         } else {
