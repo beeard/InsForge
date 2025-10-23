@@ -27,13 +27,11 @@ import { ERROR_CODES } from '@/types/error-constants';
 import { escapeSqlLikePattern, escapeRegexPattern } from '@/utils/validations.js';
 import { getApiBaseUrl } from '@/utils/environment';
 
-
 const ONE_HOUR_IN_SECONDS = 3600;
 const DEFAULT_MAX_UPLOAD_SIZE_BYTES = 10485760;
 const SEVEN_DAYS_IN_SECONDS = 604800;
 const DEFAULT_LIST_LIMIT = 100;
 const GIGABYTE_IN_BYTES = 1024 * 1024 * 1024;
-
 
 // Storage backend interface
 interface StorageBackend {
