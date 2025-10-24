@@ -62,6 +62,13 @@
                   "core-concepts/ai/architecture",
                   "core-concepts/ai/sdk"
                 ]
+              },
+              {
+                "group": "Functions",
+                "pages": [
+                  "core-concepts/functions/architecture",
+                  "core-concepts/functions/sdk"
+                ]
               }
             ]
           }
@@ -72,45 +79,45 @@
         "groups": [
           {
             "group": "Tables",
-            "openapi": "/api-reference/tables.yaml"
+            "openapi": "https://raw.githubusercontent.com/InsForge/InsForge/main/openapi/tables.yaml"
           },
           {
             "group": "Authentication",
-            "openapi": "/api-reference/auth.yaml"
+            "openapi": "https://raw.githubusercontent.com/InsForge/InsForge/main/openapi/auth.yaml"
           },
           {
             "group": "Records",
-            "openapi": "/api-reference/records.yaml"
+            "openapi": "https://raw.githubusercontent.com/InsForge/InsForge/main/openapi/records.yaml"
           },
           {
             "group": "Storage",
-            "openapi": "/api-reference/storage.yaml"
+            "openapi": "https://raw.githubusercontent.com/InsForge/InsForge/main/openapi/storage.yaml"
           },
           {
             "group": "AI Integration",
-            "openapi": "/api-reference/ai.yaml"
+            "openapi": "https://raw.githubusercontent.com/InsForge/InsForge/main/openapi/ai.yaml"
           },
           {
             "group": "Functions",
-            "openapi": "/api-reference/functions.yaml"
+            "openapi": "https://raw.githubusercontent.com/InsForge/InsForge/main/openapi/functions.yaml"
           },
           {
             "group": "Secrets",
-            "openapi": "/api-reference/secrets.yaml"
+            "openapi": "https://raw.githubusercontent.com/InsForge/InsForge/main/openapi/secrets.yaml"
           },
           {
             "group": "Logs",
-            "openapi": "/api-reference/logs.yaml"
+            "openapi": "https://raw.githubusercontent.com/InsForge/InsForge/main/openapi/logs.yaml"
           },
           {
             "group": "Metadata",
-            "openapi": "/api-reference/metadata.yaml"
+            "openapi": "https://raw.githubusercontent.com/InsForge/InsForge/main/openapi/metadata.yaml"
           },
           {
             "group": "Health",
-            "openapi": "/api-reference/health.yaml"
+            "openapi": "https://raw.githubusercontent.com/InsForge/InsForge/main/openapi/health.yaml"
           }
-        ]        
+        ]
       }
     ],
     "global": {
