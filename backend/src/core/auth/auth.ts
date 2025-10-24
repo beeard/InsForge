@@ -17,6 +17,7 @@ import type {
   CreateAdminSessionResponse,
   TokenPayloadSchema,
   AuthMetadataSchema,
+  OAuthProvidersSchema,
 } from '@insforge/shared-schemas';
 import { OAuthConfigService } from './oauth';
 import {
@@ -24,12 +25,15 @@ import {
   GitHubEmailInfo,
   GitHubUserInfo,
   GoogleUserInfo,
+  MicrosoftUserInfo,
   LinkedInUserInfo,
   DiscordUserInfo,
   UserRecord,
 } from '@/types/auth';
 import { ADMIN_ID } from '@/utils/constants';
 import { getApiBaseUrl } from '@/utils/environment';
+import { AppError } from '@/api/middleware/error';
+import { ERROR_CODES } from '@/types/error-constants';
 
 const JWT_SECRET = () => process.env.JWT_SECRET ?? '';
 const JWT_EXPIRES_IN = '7d';
@@ -289,6 +293,7 @@ export class AuthService {
       | GitHubUserInfo
       | DiscordUserInfo
       | LinkedInUserInfo
+      | MicrosoftUserInfo
       | FacebookUserInfo
       | Record<string, unknown>
   ): Promise<CreateSessionResponse> {
@@ -374,6 +379,7 @@ export class AuthService {
       | GitHubUserInfo
       | DiscordUserInfo
       | LinkedInUserInfo
+      | MicrosoftUserInfo
       | FacebookUserInfo
       | Record<string, unknown>,
     avatarUrl: string
@@ -447,7 +453,7 @@ export class AuthService {
   /**
    * Generate Google OAuth authorization URL
    */
-  async generateGoogleAuthUrl(state?: string): Promise<string | undefined> {
+  async generateGoogleOAuthUrl(state?: string): Promise<string> {
     const oauthConfigService = OAuthConfigService.getInstance();
     const config = await oauthConfigService.getConfigByProvider('google');
 
@@ -499,7 +505,7 @@ export class AuthService {
   /**
    * Generate GitHub OAuth authorization URL - ALWAYS reads fresh from DB
    */
-  async generateGitHubAuthUrl(state?: string): Promise<string> {
+  async generateGitHubOAuthUrl(state?: string): Promise<string> {
     const oauthConfigService = OAuthConfigService.getInstance();
     const config = await oauthConfigService.getConfigByProvider('github');
 
@@ -546,7 +552,7 @@ export class AuthService {
   /**
    * Generate Discord OAuth authorization URL
    */
-  async generateDiscordAuthUrl(state?: string): Promise<string> {
+  async generateDiscordOAuthUrl(state?: string): Promise<string> {
     const oauthConfigService = OAuthConfigService.getInstance();
     const config = await oauthConfigService.getConfigByProvider('discord');
 
@@ -822,6 +828,115 @@ export class AuthService {
       githubUserInfo
     );
   }
+  // NEW: Generate Microsoft OAuth authorization URL
+  async generateMicrosoftOAuthUrl(state?: string): Promise<string> {
+    const oauthConfigService = OAuthConfigService.getInstance();
+    const config = await oauthConfigService.getConfigByProvider('microsoft');
+    if (!config) {
+      throw new Error('Microsoft OAuth not configured');
+    }
+
+    const selfBaseUrl = getApiBaseUrl();
+
+    // Note: shared-keys path not implemented for Microsoft; configure local keys
+    const authUrl = new URL('https://login.microsoftonline.com/common/oauth2/v2.0/authorize');
+    authUrl.searchParams.set('client_id', config.clientId ?? '');
+    authUrl.searchParams.set('response_type', 'code');
+    authUrl.searchParams.set('redirect_uri', `${selfBaseUrl}/api/auth/oauth/microsoft/callback`);
+    authUrl.searchParams.set(
+      'scope',
+      config.scopes && config.scopes.length > 0
+        ? config.scopes.join(' ')
+        : 'openid email profile offline_access User.Read'
+    );
+    if (state) {
+      authUrl.searchParams.set('state', state);
+    }
+    return authUrl.toString();
+  }
+
+  // NEW: Exchange Microsoft code for tokens
+  async exchangeCodeToTokenByMicrosoft(
+    code: string
+  ): Promise<{ access_token: string; id_token?: string }> {
+    const oauthConfigService = OAuthConfigService.getInstance();
+    const config = await oauthConfigService.getConfigByProvider('microsoft');
+    if (!config) {
+      throw new Error('Microsoft OAuth not configured');
+    }
+    const clientSecret = await oauthConfigService.getClientSecretByProvider('microsoft');
+    const selfBaseUrl = getApiBaseUrl();
+
+    const body = new URLSearchParams({
+      client_id: config.clientId ?? '',
+      client_secret: clientSecret ?? '',
+      code,
+      redirect_uri: `${selfBaseUrl}/api/auth/oauth/microsoft/callback`,
+      grant_type: 'authorization_code',
+      scope:
+        config.scopes && config.scopes.length > 0
+          ? config.scopes.join(' ')
+          : 'openid email profile offline_access User.Read',
+    });
+
+    const response = await axios.post(
+      'https://login.microsoftonline.com/common/oauth2/v2.0/token',
+      body.toString(),
+      {
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      }
+    );
+
+    if (!response.data.access_token) {
+      throw new Error('Failed to get access token from Microsoft');
+    }
+    return {
+      access_token: response.data.access_token,
+      id_token: response.data.id_token, // optional
+    };
+  }
+
+  // NEW: Get Microsoft user info via Graph API
+  async getMicrosoftUserInfo(accessToken: string) {
+    const userResp = await axios.get('https://graph.microsoft.com/v1.0/me', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+
+    const data = userResp.data as {
+      id: string;
+      displayName?: string;
+      userPrincipalName?: string;
+      mail?: string | null;
+    };
+
+    const email = data.mail || `${data.id}@users.noreply.microsoft.com`;
+
+    return {
+      id: data.id,
+      displayName: data.displayName || '',
+      userPrincipalName: data.userPrincipalName || '',
+      email,
+    };
+  }
+
+  // NEW: Find or create Microsoft user
+  async findOrCreateMicrosoftUser(msUserInfo: {
+    id: string;
+    displayName?: string;
+    userPrincipalName?: string;
+    email: string;
+    avatar_url?: string;
+  }): Promise<CreateSessionResponse> {
+    const userName = msUserInfo.displayName || msUserInfo.email.split('@')[0] || 'user';
+    return this.findOrCreateThirdPartyUser(
+      'microsoft',
+      msUserInfo.id,
+      msUserInfo.email,
+      userName,
+      msUserInfo.avatar_url || '',
+      msUserInfo
+    );
+  }
 
   /**
    * Exchange Discord code for access token
@@ -899,7 +1014,7 @@ export class AuthService {
   /**
    * Generate LinkedIn OAuth authorization URL
    */
-  async generateLinkedInAuthUrl(state?: string): Promise<string | undefined> {
+  async generateLinkedInOAuthUrl(state?: string): Promise<string> {
     const oauthConfigService = OAuthConfigService.getInstance();
     const config = await oauthConfigService.getConfigByProvider('linkedin');
 
@@ -907,7 +1022,7 @@ export class AuthService {
       throw new Error('LinkedIn OAuth not configured');
     }
 
-    const selfBaseUrl = process.env.API_BASE_URL || 'http://localhost:7130';
+    const selfBaseUrl = getApiBaseUrl();
 
     if (config?.useSharedKey) {
       if (!state) {
@@ -977,7 +1092,7 @@ export class AuthService {
       });
 
       const clientSecret = await oauthConfigService.getClientSecretByProvider('linkedin');
-      const selfBaseUrl = process.env.API_BASE_URL || 'http://localhost:7130';
+      const selfBaseUrl = getApiBaseUrl();
       const response = await axios.post(
         'https://www.linkedin.com/oauth/v2/accessToken',
         new URLSearchParams({
@@ -1041,7 +1156,7 @@ export class AuthService {
       const JWKS = createRemoteJWKSet(new URL('https://www.linkedin.com/oauth/openid/jwks'));
 
       const { payload } = await jwtVerify(idToken, JWKS, {
-        issuer: 'https://www.linkedin.com',
+        issuer: 'https://www.linkedin.com/oauth',
         audience: config.clientId,
       });
 
@@ -1081,7 +1196,7 @@ export class AuthService {
   /**
    * Generate Facebook OAuth authorization URL
    */
-  async generateFacebookAuthUrl(state?: string): Promise<string | undefined> {
+  async generateFacebookOAuthUrl(state?: string): Promise<string> {
     const oauthConfigService = OAuthConfigService.getInstance();
     const config = await oauthConfigService.getConfigByProvider('facebook');
 
@@ -1200,6 +1315,159 @@ export class AuthService {
     return {
       oauths: oAuthConfigs,
     };
+  }
+
+  /**
+   * Generate OAuth authorization URL for any supported provider
+   */
+  async generateOAuthUrl(provider: OAuthProvidersSchema, state?: string): Promise<string> {
+    switch (provider) {
+      case 'google':
+        return this.generateGoogleOAuthUrl(state);
+      case 'github':
+        return this.generateGitHubOAuthUrl(state);
+      case 'discord':
+        return this.generateDiscordOAuthUrl(state);
+      case 'linkedin':
+        return this.generateLinkedInOAuthUrl(state);
+      case 'facebook':
+        return this.generateFacebookOAuthUrl(state);
+      case 'microsoft':
+        return this.generateMicrosoftOAuthUrl(state);
+      default:
+        throw new Error(`OAuth provider ${provider} is not implemented yet.`);
+    }
+  }
+
+  /**
+   * Handle OAuth callback for any supported provider
+   */
+  async handleOAuthCallback(
+    provider: OAuthProvidersSchema,
+    payload: { code?: string; token?: string }
+  ): Promise<CreateSessionResponse> {
+    switch (provider) {
+      case 'google':
+        return this.handleGoogleCallback(payload);
+      case 'github':
+        return this.handleGitHubCallback(payload);
+      case 'discord':
+        return this.handleDiscordCallback(payload);
+      case 'linkedin':
+        return this.handleLinkedInCallback(payload);
+      case 'facebook':
+        return this.handleFacebookCallback(payload);
+      case 'microsoft':
+        return this.handleMicrosoftCallback(payload);
+      default:
+        throw new Error(`OAuth provider ${provider} is not implemented yet.`);
+    }
+  }
+
+  /**
+   * Handle Google OAuth callback
+   */
+  private async handleGoogleCallback(payload: {
+    code?: string;
+    token?: string;
+  }): Promise<CreateSessionResponse> {
+    if (payload.token) {
+      const googleUserInfo = await this.verifyGoogleToken(payload.token);
+      return this.findOrCreateGoogleUser(googleUserInfo);
+    }
+
+    if (payload.code) {
+      const tokens = await this.exchangeCodeToTokenByGoogle(payload.code);
+      const googleUserInfo = await this.verifyGoogleToken(tokens.id_token);
+      return this.findOrCreateGoogleUser(googleUserInfo);
+    }
+
+    throw new Error('No authorization code or token provided');
+  }
+
+  /**
+   * Handle GitHub OAuth callback
+   */
+  private async handleGitHubCallback(payload: {
+    code?: string;
+    token?: string;
+  }): Promise<CreateSessionResponse> {
+    if (!payload.code) {
+      throw new Error('No authorization code provided');
+    }
+
+    const accessToken = await this.exchangeGitHubCodeForToken(payload.code);
+    const githubUserInfo = await this.getGitHubUserInfo(accessToken);
+    return this.findOrCreateGitHubUser(githubUserInfo);
+  }
+
+  /**
+   * Handle Discord OAuth callback
+   */
+  private async handleDiscordCallback(payload: {
+    code?: string;
+    token?: string;
+  }): Promise<CreateSessionResponse> {
+    if (!payload.code) {
+      throw new Error('No authorization code provided');
+    }
+
+    const accessToken = await this.exchangeDiscordCodeForToken(payload.code);
+    const discordUserInfo = await this.getDiscordUserInfo(accessToken);
+    return this.findOrCreateDiscordUser(discordUserInfo);
+  }
+
+  /**
+   * Handle LinkedIn OAuth callback
+   */
+  private async handleLinkedInCallback(payload: {
+    code?: string;
+    token?: string;
+  }): Promise<CreateSessionResponse> {
+    if (payload.token) {
+      const linkedinUserInfo = await this.verifyLinkedInToken(payload.token);
+      return this.findOrCreateLinkedInUser(linkedinUserInfo);
+    }
+
+    if (payload.code) {
+      const tokens = await this.exchangeCodeToTokenByLinkedIn(payload.code);
+      const linkedinUserInfo = await this.verifyLinkedInToken(tokens.id_token);
+      return this.findOrCreateLinkedInUser(linkedinUserInfo);
+    }
+
+    throw new Error('No authorization code or token provided');
+  }
+
+  /**
+   * Handle Facebook OAuth callback
+   */
+  private async handleFacebookCallback(payload: {
+    code?: string;
+    token?: string;
+  }): Promise<CreateSessionResponse> {
+    if (!payload.code) {
+      throw new AppError('No authorization code provided', 400, ERROR_CODES.INVALID_INPUT);
+    }
+
+    const accessToken = await this.exchangeFacebookCodeForToken(payload.code);
+    const facebookUserInfo = await this.getFacebookUserInfo(accessToken);
+    return this.findOrCreateFacebookUser(facebookUserInfo);
+  }
+
+  /**
+   * Handle Microsoft OAuth callback
+   */
+  private async handleMicrosoftCallback(payload: {
+    code?: string;
+    token?: string;
+  }): Promise<CreateSessionResponse> {
+    if (!payload.code) {
+      throw new AppError('No authorization code provided', 400, ERROR_CODES.INVALID_INPUT);
+    }
+
+    const accessToken = await this.exchangeCodeToTokenByMicrosoft(payload.code);
+    const microsoftUserInfo = await this.getMicrosoftUserInfo(accessToken.access_token);
+    return this.findOrCreateMicrosoftUser(microsoftUserInfo);
   }
 
   /**

@@ -66,7 +66,7 @@ export default function StoragePage() {
     refetchBuckets,
     useBucketStats,
     uploadObject,
-    deleteObject,
+    deleteObjects,
     deleteBucket,
   } = useStorage();
 
@@ -137,12 +137,8 @@ export default function StoragePage() {
     });
 
     if (shouldDelete) {
-      try {
-        await Promise.all(fileKeys.map((key) => deleteObject({ bucket: selectedBucket, key })));
-        setSelectedFiles(new Set());
-      } catch {
-        showToast('Failed to delete some files', 'error');
-      }
+      deleteObjects({ bucket: selectedBucket, keys: fileKeys });
+      setSelectedFiles(new Set());
     }
   };
 
