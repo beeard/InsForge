@@ -130,7 +130,6 @@ function DatabasePageContent() {
       if (data.success) {
         showToast(data.message || 'Import successful!', 'success');
         void refetchTableData();
-        void refetchTables();
       } else {
         // This case handles validation errors returned with a 200 OK but success: false
         const errorMessage =
