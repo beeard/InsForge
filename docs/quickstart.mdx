@@ -1,0 +1,186 @@
+---
+title: "Quickstart"
+description: "Get Insforge running in 5 minutes"
+---
+
+Choose your deployment method:
+
+<Tabs>
+  <Tab title="Cloud Platform">
+    ## Get started in three steps (Cloud)
+    
+    <Frame caption="Watch how to get started with InsForge in under 2 minutes">
+      <iframe 
+        src="https://www.loom.com/embed/dce4a7e300554d14a8bef7705f82e39c?hide_speed=true"
+        width="100%"
+        height="400"
+        frameBorder="0" 
+        webkitAllowFullScreen 
+        mozAllowFullScreen 
+        allowFullScreen
+      ></iframe>
+    </Frame>
+    
+    ### Step 1: Create your project
+    
+    <Card title="Go to Insforge Cloud" icon="cloud" href="https://insforge.dev">
+      Visit [insforge.dev](https://insforge.dev) and create a free account
+    </Card>
+    
+    Once logged in:
+    1. Click **"Create New Project"**
+    2. Your backend will be ready in ~3 seconds
+    
+    You'll get:
+    - **API URL**: `https://your-app.us-east.insforge.app`
+    - **Dashboard**: Project management dashboard
+    - **Database**: PostgreSQL with automatic REST APIs
+    - **Storage**: File upload and management
+    - **AI Integration**: Built-in AI capabilities
+    
+    ### Step 2: Connect your AI agent
+    
+    <img src="/images/dashboard-connect.png" alt="Insforge Dashboard Connect" />
+    
+    In your project dashboard:
+    1. Click the **Connect** button
+    2. Select your AI tool (Cursor, Claude, Windsurf, etc.)
+    3. Copy the installation command - it includes your API key and URL automatically:
+    
+    ```bash
+    npx @insforge/install --client cursor \
+      --env API_KEY=ik_d02a35cfd8056c18e9e59b34bf8bf773 \
+      --env API_BASE_URL=https://your-app.us-east.insforge.app
+    ```
+    
+    4. Run the command in your terminal
+    5. Test with: "InsForge is my backend, what tables do I have?"
+    
+    <Note>
+      Cloud platform includes automatic backups, scaling, and zero maintenance.
+    </Note>
+    
+    ### Step 3: Build your first app
+
+    Create a new directory for your app (not inside the insforge folder):
+
+    ```bash
+    mkdir my-app
+    cd my-app
+    ```
+
+    Now tell your AI assistant to build something:
+
+    ```
+    "Build a todo app with user authentication using Insforge as the backend"
+    ```
+
+    Your AI will automatically:
+    - Create database tables
+    - Set up authentication
+    - Handle file uploads
+    - Generate a complete frontend
+  </Tab>
+  
+  <Tab title="Local Development">
+    ## Run Insforge locally
+    
+    For local development and self-hosting instructions, please visit the official OSS repository:
+    
+    <Card title="Insforge OSS Repository" icon="github" href="https://github.com/insforge/insforge">
+      **Complete local setup guide available at:**
+      
+      https://github.com/insforge/insforge
+      
+      The repository includes:
+      - Docker setup instructions
+      - Environment configuration
+      - AI agent integration guides
+      - Troubleshooting tips
+    </Card>
+    
+    <Note>
+      Local development requires Docker and provides the same features as the cloud platform.
+    </Note>
+  </Tab>
+</Tabs>
+
+## What you get
+
+With Insforge running, your AI assistant has access to:
+
+<CardGroup cols={2}>
+  <Card title="Database" icon="database">
+    PostgreSQL with instant REST APIs via PostgREST
+  </Card>
+  
+  <Card title="Authentication" icon="shield">
+    Complete auth system with JWT sessions
+  </Card>
+  
+  <Card title="File Storage" icon="folder">
+    S3-compatible storage for uploads
+  </Card>
+  
+  <Card title="Consistent APIs" icon="code">
+    Every endpoint follows the same patterns
+  </Card>
+</CardGroup>
+
+## Try these examples
+
+- `"Create a user registration and login system"`
+- `"Build an Instagram clone with image uploads"`
+- `"Add a comments system with voting"`
+
+## API documentation
+
+For complete API documentation, see the API Reference tab which includes:
+- [Database Tables API](/api-reference/tables/create-table)
+- [Authentication API](/api-reference/auth/register)
+- [Records API](/api-reference/records/query-records)
+- [Storage API](/api-reference/storage/upload-file)
+
+<Tip>
+  All database tables you create automatically get REST endpoints through PostgREST.
+</Tip>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Database Overview" icon="database" href="/core-concepts/database/overview">
+    Learn about tables, queries, and migrations
+  </Card>
+  
+  <Card title="Authentication Overview" icon="shield" href="/core-concepts/authentication/overview">
+    Set up OAuth, sessions, and user management
+  </Card>
+  
+  <Card title="Storage Overview" icon="folder" href="/core-concepts/storage/overview">
+    Upload and serve files efficiently
+  </Card>
+  
+  <Card title="API Reference" icon="book" href="/api-reference/tables/create-table">
+    Explore all available endpoints
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion icon="circle-exclamation" title="Port already in use">
+    If port 7130 or 7131 is already in use, update the ports in your `.env` file:
+    ```
+    API_PORT=8130
+    DASHBOARD_PORT=8131
+    ```
+  </Accordion>
+  
+  <Accordion icon="circle-exclamation" title="Docker not starting">
+    Make sure Docker Desktop is running and you have sufficient disk space.
+  </Accordion>
+  
+  <Accordion icon="circle-exclamation" title="AI agent not connecting">
+    Verify Insforge is running by visiting http://localhost:7130/health
+  </Accordion>
+</AccordionGroup>
