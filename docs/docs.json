@@ -71,6 +71,10 @@
                 ]
               }
             ]
+          },
+          {
+            "group": "Showcase",
+            "pages": ["showcase"]
           }
         ]
       },
