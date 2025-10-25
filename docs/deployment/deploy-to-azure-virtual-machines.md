@@ -86,7 +86,7 @@ This guide provides comprehensive, step-by-step instructions for deploying, mana
     Navigate to your home directory and clone the InsForge project.
     ```bash
     cd ~
-    git clone [https://github.com/InsForge/InsForge.git](https://github.com/InsForge/InsForge.git)
+    git clone https://github.com/InsForge/InsForge.git
     cd InsForge
     ```
 
