@@ -3,78 +3,50 @@ title: Showcase
 description: Production applications built with InsForge
 ---
 
+import { ServiceIcons } from '/snippets/service-icons.mdx';
+
 See what developers are building with InsForge - from AI-powered SaaS to social platforms and beyond.
 
 ## Community Projects
 
 <CardGroup cols={2}>
-  <Card title="FrameGen Cloud" icon="film" href="https://www.framegen.cloud/film-frame">
-    <Frame>
-      <img src="/showcase/framegen-cloud.png" />
-    </Frame>
-
-    Film frame generation tool for creating cinematic stills and visual storytelling.
-
-    **Services:** Database · Auth · Storage · AI · Functions
-  </Card>
-
   <Card title="National Flags Leaderboard" icon="flag" href="https://national-flags.lovable.app/">
-    <Frame>
-      <img src="/showcase/national-flags.png" />
-    </Frame>
+    <div style={{maxHeight: '192px', height: '192px', overflow: 'hidden', borderRadius: '0.5rem', pointerEvents: 'none'}}>
+      <img src="/showcase/national-flags.png" style={{width: '100%', height: '192px', objectFit: 'cover', pointerEvents: 'none'}} alt="National Flags Leaderboard showcase" />
+    </div>
 
     Learn national flags through an interactive database and take on challenges with real-time leaderboard rankings.
 
-    **Services:** Database · Auth · Storage · AI · Functions
+    <ServiceIcons services={['database', 'auth', 'storage', 'ai', 'functions']} />
   </Card>
 
   <Card title="Pokemon Vibe" icon="wand-magic-sparkles" href="https://pokemon-vibe.lovable.app/">
-    <Frame>
-      <img src="/showcase/pokemon-vibe.png" />
-    </Frame>
+    <div style={{maxHeight: '192px', height: '192px', overflow: 'hidden', borderRadius: '0.5rem', pointerEvents: 'none'}}>
+      <img src="/showcase/pokemon-vibe.png" style={{width: '100%', height: '192px', objectFit: 'cover', pointerEvents: 'none'}} alt="Pokemon Vibe showcase" />
+    </div>
 
     Form your own Pokemon teams and compete against others. AI-powered battles let two teams fight on top of AI-generated drawings.
 
-    **Services:** Database · Auth · AI · Storage · Functions
-  </Card>
-
-  <Card title="Moment Vibe" icon="image" href="https://moment-vibe.netlify.app/">
-    <Frame>
-      <img src="/showcase/moment-vibe.png" />
-    </Frame>
-
-    Photo sharing platform with cloud storage for uploading and managing memorable moments.
-
-    **Services:** Database · Storage · Auth · Functions
+    <ServiceIcons services={['database', 'auth', 'ai', 'storage', 'functions']} />
   </Card>
 
   <Card title="2048 Arena" icon="gamepad" href="https://insforge-2048-arena.netlify.app/">
-    <Frame>
-      <img src="/showcase/2048-arena.png" />
-    </Frame>
+    <div style={{maxHeight: '192px', height: '192px', overflow: 'hidden', borderRadius: '0.5rem', pointerEvents: 'none'}}>
+      <img src="/showcase/2048-arena.png" style={{width: '100%', height: '192px', objectFit: 'cover', pointerEvents: 'none'}} alt="2048 Arena showcase" />
+    </div>
 
     Classic 2048 puzzle game with multiplayer arena and competitive leaderboards.
 
-    **Services:** Database · Auth
-  </Card>
-
-  <Card title="Pure Browse Buy" icon="cart-shopping" href="https://pure-browse-buy.lovable.app/">
-    <Frame>
-      <img src="/showcase/pure-browse-buy.png" />
-    </Frame>
-
-    E-commerce platform for browsing and purchasing products with seamless checkout experience.
-
-    **Services:** Database · Auth · Storage
+    <ServiceIcons services={['database', 'auth']} />
   </Card>
 
   <Card title="Line Connect Race" icon="route" href="https://line-connect-race.vercel.app/">
-    <Frame>
-      <img src="/showcase/line-connect-race.png" />
-    </Frame>
+    <div style={{maxHeight: '192px', height: '192px', overflow: 'hidden', borderRadius: '0.5rem', pointerEvents: 'none'}}>
+      <img src="/showcase/line-connect-race.png" style={{width: '100%', height: '192px', objectFit: 'cover', pointerEvents: 'none'}} alt="Line Connect Race showcase" />
+    </div>
 
     Interactive line-drawing racing game with real-time multiplayer and competitive gameplay.
 
-    **Services:** Database · Auth · Functions
+    <ServiceIcons services={['database', 'auth', 'functions']} />
   </Card>
 </CardGroup>
