@@ -35,7 +35,7 @@ create_response=$(curl -s -w "\n%{http_code}" -X POST "$API_BASE/functions" \
     }')
 
 status=$(echo "$create_response" | tail -n 1)
-body=$(echo "$create_response" | head -n -1)
+body=$(echo "$create_response" | sed '$d')
 
 if [ "$status" -eq 201 ]; then
     print_success "Function created"
@@ -53,7 +53,7 @@ list_response=$(curl -s -w "\n%{http_code}" -X GET "$API_BASE/functions" \
     -H "Authorization: Bearer $ADMIN_TOKEN")
 
 status=$(echo "$list_response" | tail -n 1)
-body=$(echo "$list_response" | head -n -1)
+body=$(echo "$list_response" | sed '$d')
 
 if [ "$status" -eq 200 ] && echo "$body" | grep -q "$FUNCTION_SLUG"; then
     print_success "Listed functions successfully"
@@ -70,7 +70,7 @@ get_response=$(curl -s -w "\n%{http_code}" -X GET "$API_BASE/functions/$FUNCTION
     -H "Authorization: Bearer $ADMIN_TOKEN")
 
 status=$(echo "$get_response" | tail -n 1)
-body=$(echo "$get_response" | head -n -1)
+body=$(echo "$get_response" | sed '$d')
 
 if [ "$status" -eq 200 ] && echo "$body" | grep -q '"code"'; then
     print_success "Retrieved function details with code"
@@ -92,7 +92,7 @@ update_response=$(curl -s -w "\n%{http_code}" -X PUT "$API_BASE/functions/$FUNCT
     }')
 
 status=$(echo "$update_response" | tail -n 1)
-body=$(echo "$update_response" | head -n -1)
+body=$(echo "$update_response" | sed '$d')
 
 if [ "$status" -eq 200 ]; then
     print_success "Function updated"
@@ -109,7 +109,7 @@ delete_response=$(curl -s -w "\n%{http_code}" -X DELETE "$API_BASE/functions/$FU
     -H "Authorization: Bearer $ADMIN_TOKEN")
 
 status=$(echo "$delete_response" | tail -n 1)
-body=$(echo "$delete_response" | head -n -1)
+body=$(echo "$delete_response" | sed '$d')
 
 if [ "$status" -eq 200 ]; then
     print_success "Function deleted"

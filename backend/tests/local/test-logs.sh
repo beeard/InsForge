@@ -27,7 +27,7 @@ audit_response=$(curl -s -w "\n%{http_code}" -X GET "$API_BASE/logs/audits?limit
     -H "Authorization: Bearer $ADMIN_TOKEN")
 
 status=$(echo "$audit_response" | tail -n 1)
-body=$(echo "$audit_response" | head -n -1)
+body=$(echo "$audit_response" | sed '$d')
 
 if [ "$status" -eq 200 ] || [ "$status" -eq 206 ]; then
     print_success "Retrieved audit logs"
@@ -46,7 +46,7 @@ module_response=$(curl -s -w "\n%{http_code}" -X GET "$API_BASE/logs/audits?modu
     -H "Authorization: Bearer $ADMIN_TOKEN")
 
 status=$(echo "$module_response" | tail -n 1)
-body=$(echo "$module_response" | head -n -1)
+body=$(echo "$module_response" | sed '$d')
 
 if [ "$status" -eq 200 ] || [ "$status" -eq 206 ]; then
     print_success "Retrieved filtered audit logs"
@@ -63,7 +63,7 @@ stats_response=$(curl -s -w "\n%{http_code}" -X GET "$API_BASE/logs/audits/stats
     -H "Authorization: Bearer $ADMIN_TOKEN")
 
 status=$(echo "$stats_response" | tail -n 1)
-body=$(echo "$stats_response" | head -n -1)
+body=$(echo "$stats_response" | sed '$d')
 
 if [ "$status" -eq 200 ] || [ "$status" -eq 500 ]; then
     if [ "$status" -eq 500 ]; then
@@ -84,7 +84,7 @@ sources_response=$(curl -s -w "\n%{http_code}" -X GET "$API_BASE/logs/sources" \
     -H "Authorization: Bearer $ADMIN_TOKEN")
 
 status=$(echo "$sources_response" | tail -n 1)
-body=$(echo "$sources_response" | head -n -1)
+body=$(echo "$sources_response" | sed '$d')
 
 if [ "$status" -eq 200 ]; then
     print_success "Retrieved log sources"
@@ -101,7 +101,7 @@ search_response=$(curl -s -w "\n%{http_code}" -X GET "$API_BASE/logs/search?q=te
     -H "Authorization: Bearer $ADMIN_TOKEN")
 
 status=$(echo "$search_response" | tail -n 1)
-body=$(echo "$search_response" | head -n -1)
+body=$(echo "$search_response" | sed '$d')
 
 if [ "$status" -eq 200 ] || [ "$status" -eq 206 ]; then
     print_success "Searched logs successfully"
@@ -118,7 +118,7 @@ log_stats_response=$(curl -s -w "\n%{http_code}" -X GET "$API_BASE/logs/stats" \
     -H "Authorization: Bearer $ADMIN_TOKEN")
 
 status=$(echo "$log_stats_response" | tail -n 1)
-body=$(echo "$log_stats_response" | head -n -1)
+body=$(echo "$log_stats_response" | sed '$d')
 
 if [ "$status" -eq 200 ]; then
     print_success "Retrieved log statistics"

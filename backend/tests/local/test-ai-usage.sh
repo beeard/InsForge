@@ -27,7 +27,7 @@ summary_response=$(curl -s -w "\n%{http_code}" -X GET "$API_BASE/ai/usage/summar
     -H "Authorization: Bearer $ADMIN_TOKEN")
 
 status=$(echo "$summary_response" | tail -n 1)
-body=$(echo "$summary_response" | head -n -1)
+body=$(echo "$summary_response" | sed '$d')
 
 if [ "$status" -eq 200 ]; then
     print_success "Retrieved usage summary"
@@ -46,7 +46,7 @@ usage_response=$(curl -s -w "\n%{http_code}" -X GET "$API_BASE/ai/usage?limit=10
     -H "Authorization: Bearer $ADMIN_TOKEN")
 
 status=$(echo "$usage_response" | tail -n 1)
-body=$(echo "$usage_response" | head -n -1)
+body=$(echo "$usage_response" | sed '$d')
 
 if [ "$status" -eq 200 ]; then
     print_success "Retrieved usage records"
@@ -66,7 +66,7 @@ date_response=$(curl -s -w "\n%{http_code}" -X GET "$API_BASE/ai/usage?startDate
     -H "Authorization: Bearer $ADMIN_TOKEN")
 
 status=$(echo "$date_response" | tail -n 1)
-body=$(echo "$date_response" | head -n -1)
+body=$(echo "$date_response" | sed '$d')
 
 if [ "$status" -eq 200 ]; then
     print_success "Retrieved usage with date filter"
