@@ -19,10 +19,6 @@ COPY . .
 ARG VITE_API_BASE_URL
 ARG VITE_PUBLIC_POSTHOG_KEY
 
-# Make build args available as environment variables during the build
-ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
-ENV VITE_PUBLIC_POSTHOG_KEY=$VITE_PUBLIC_POSTHOG_KEY
-
 # Build frontend with environment variables baked in
 RUN npm run build
 
