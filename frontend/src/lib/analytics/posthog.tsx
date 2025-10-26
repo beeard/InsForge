@@ -1,18 +1,23 @@
 import posthog from 'posthog-js';
 import { PostHogProvider } from 'posthog-js/react';
 
-const PostHogKey = import.meta.env.VITE_PUBLIC_POSTHOG_KEY || '';
+const POSTHOG_KEY = import.meta.env.VITE_PUBLIC_POSTHOG_KEY || '';
 
-posthog.init(PostHogKey, {
-  api_host: 'https://us.i.posthog.com',
-  capture_exceptions: true, // This enables capturing exceptions using Error Tracking
-  debug: import.meta.env.DEV,
-  session_recording: {
-    // WARNING: Only enable this if you understand the security implications
-    recordCrossOriginIframes: true,
-  },
-});
+if (POSTHOG_KEY) {
+  posthog.init(POSTHOG_KEY, {
+    api_host: 'https://us.i.posthog.com',
+    capture_exceptions: true, // This enables capturing exceptions using Error Tracking
+    debug: import.meta.env.DEV,
+    session_recording: {
+      // WARNING: Only enable this if you understand the security implications
+      recordCrossOriginIframes: true,
+    },
+  });
+}
 
 export const PostHogAnalyticsProvider = ({ children }: { children: React.ReactNode }) => {
-  return <PostHogProvider client={posthog}>{children}</PostHogProvider>;
+  if (POSTHOG_KEY) {
+    return <PostHogProvider client={posthog}>{children}</PostHogProvider>;
+  }
+  return children;
 };
