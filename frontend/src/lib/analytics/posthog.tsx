@@ -1,7 +1,9 @@
 import posthog from 'posthog-js';
 import { PostHogProvider } from 'posthog-js/react';
 
-posthog.init(import.meta.env.VITE_PUBLIC_POSTHOG_KEY || '', {
+const PostHogKey = import.meta.env.VITE_PUBLIC_POSTHOG_KEY || '';
+
+posthog.init(PostHogKey, {
   api_host: 'https://us.i.posthog.com',
   capture_exceptions: true, // This enables capturing exceptions using Error Tracking
   debug: import.meta.env.DEV,
@@ -12,5 +14,6 @@ posthog.init(import.meta.env.VITE_PUBLIC_POSTHOG_KEY || '', {
 });
 
 export const PostHogAnalyticsProvider = ({ children }: { children: React.ReactNode }) => {
+  console.warn('PostHog Key', PostHogKey);
   return <PostHogProvider client={posthog}>{children}</PostHogProvider>;
 };
