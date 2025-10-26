@@ -14,6 +14,5 @@ posthog.init(PostHogKey, {
 });
 
 export const PostHogAnalyticsProvider = ({ children }: { children: React.ReactNode }) => {
-  console.warn('PostHog Key', PostHogKey);
   return <PostHogProvider client={posthog}>{children}</PostHogProvider>;
 };
