@@ -16,8 +16,6 @@ import {
 import type { OAuthProvidersSchema } from '@insforge/shared-schemas';
 import { oauthProviders, type OAuthProviderInfo } from '@/features/auth/helpers';
 
-const providers = oauthProviders;
-
 export function AuthMethodTab() {
   const [selectedProvider, setSelectedProvider] = useState<OAuthProviderInfo>();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -73,7 +71,7 @@ export function AuthMethodTab() {
       OAuthProvidersSchema,
       boolean
     >;
-    providers.forEach((provider) => {
+    oauthProviders.forEach((provider) => {
       enabled[provider.id] = isProviderConfigured(provider.id);
     });
     return enabled;
@@ -81,12 +79,12 @@ export function AuthMethodTab() {
 
   // Check if all providers are enabled
   const allProvidersEnabled = useMemo(() => {
-    return providers.every((provider) => enabledProviders[provider.id]);
+    return oauthProviders.every((provider) => enabledProviders[provider.id]);
   }, [enabledProviders]);
 
   const handleConfirmSelected = (selectedId: OAuthProvidersSchema) => {
     // Find the selected provider
-    const selectedProvider = providers.find((p) => p.id === selectedId);
+    const selectedProvider = oauthProviders.find((p) => p.id === selectedId);
     if (!selectedProvider) {
       return;
     }
@@ -133,7 +131,7 @@ export function AuthMethodTab() {
         <div className="flex-1">
           {hasAuthMethods ? (
             <div className="grid grid-cols-2 gap-x-3 gap-y-6">
-              {providers.map((provider) => {
+              {oauthProviders.map((provider) => {
                 const providerConfig = getProviderConfig(provider.id);
                 if (!providerConfig) {
                   return null;
@@ -205,7 +203,7 @@ export function AuthMethodTab() {
       />
 
       <AddOAuthDialog
-        providers={providers}
+        providers={oauthProviders}
         open={isSelectDialogOpen}
         onOpenChange={setIsSelectDialogOpen}
         onConfirm={handleConfirmSelected}
