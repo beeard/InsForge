@@ -1,5 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { AuthService } from '@/core/auth/auth.js';
+import { AuthConfigService } from '@/core/auth/auth.config.js';
 import { AuditService } from '@/core/logs/audit.js';
 import { AppError } from '@/api/middleware/error.js';
 import { ERROR_CODES } from '@/types/error-constants.js';
@@ -22,22 +23,75 @@ import {
   requestOneTimePasswordSchema,
   verifyEmailRequestSchema,
   verifyOneTimePasswordRequestSchema,
+  updateEmailAuthConfigRequestSchema,
   type CreateUserResponse,
   type CreateSessionResponse,
   type CreateAdminSessionResponse,
   type GetCurrentSessionResponse,
   type ListUsersResponse,
   type DeleteUsersResponse,
+  type GetEmailAuthConfigResponse,
   exchangeAdminSessionRequestSchema,
 } from '@insforge/shared-schemas';
 import { UserRecord } from '@/types/auth.js';
 
 const router = Router();
 const authService = AuthService.getInstance();
+const authConfigService = AuthConfigService.getInstance();
 const auditService = AuditService.getInstance();
 
 // Mount OAuth routes
 router.use('/oauth', oauthRouter);
+
+// Email Authentication Configuration Routes
+// GET /api/auth/email/config - Get email authentication configuration (admin only)
+router.get(
+  '/email/config',
+  verifyAdmin,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const config: GetEmailAuthConfigResponse = await authConfigService.getEmailConfig();
+      res.json(config);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// PUT /api/auth/email/config - Update email authentication configuration (admin only)
+router.put(
+  '/email/config',
+  verifyAdmin,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const validationResult = updateEmailAuthConfigRequestSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        throw new AppError(
+          validationResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', '),
+          400,
+          ERROR_CODES.INVALID_INPUT
+        );
+      }
+
+      const input = validationResult.data;
+      const config: GetEmailAuthConfigResponse = await authConfigService.updateEmailConfig(input);
+
+      await auditService.log({
+        actor: req.user?.email || 'api-key',
+        action: 'UPDATE_EMAIL_AUTH_CONFIG',
+        module: 'AUTH',
+        details: {
+          updatedFields: Object.keys(input),
+        },
+        ip_address: req.ip,
+      });
+
+      successResponse(res, config);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
 // POST /api/auth/users - Create a new user (registration)
 router.post('/users', async (req: Request, res: Response, next: NextFunction) => {

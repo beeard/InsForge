@@ -7,7 +7,7 @@ import {
   ListOAuthConfigsResponse,
   OAuthProvidersSchema,
 } from '@insforge/shared-schemas';
-import { oauthConfigService } from '../services/oauth.service';
+import { oauthConfigService } from '../services/oauth-config.service';
 import { useToast } from '@/lib/hooks/useToast';
 
 export function useOAuthConfig() {
@@ -35,7 +35,10 @@ export function useOAuthConfig() {
   } = useQuery<OAuthConfigSchema & { clientSecret?: string }>({
     queryKey: ['oauth-config', selectedProvider],
     queryFn: () => oauthConfigService.getConfigByProvider(selectedProvider ?? ''),
-    enabled: configs && configs.data.some((config) => config.provider === selectedProvider),
+    enabled:
+      !!selectedProvider &&
+      !!configs &&
+      configs.data.some((config) => config.provider === selectedProvider),
   });
 
   // Mutation to create OAuth configuration

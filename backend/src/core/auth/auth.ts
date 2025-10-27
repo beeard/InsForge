@@ -19,7 +19,7 @@ import type {
   AuthMetadataSchema,
   OAuthProvidersSchema,
 } from '@insforge/shared-schemas';
-import { OAuthConfigService } from './oauth';
+import { OAuthConfigService } from './oauth.config';
 import {
   FacebookUserInfo,
   GitHubEmailInfo,
