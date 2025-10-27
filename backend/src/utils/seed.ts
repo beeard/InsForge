@@ -5,6 +5,7 @@ import logger from '@/utils/logger.js';
 import { SecretService } from '@/core/secrets/secrets';
 import { OAuthConfigService } from '@/core/auth/oauth.js';
 import { OAuthProvidersSchema } from '@insforge/shared-schemas';
+import { AuthService } from '@/core/auth/auth.js';
 
 /**
  * Validates admin credentials are configured
@@ -153,6 +154,8 @@ async function seedLocalOAuthConfigs(): Promise<void> {
 // Create api key, admin user, and default AI configs
 export async function seedBackend(): Promise<void> {
   const secretService = new SecretService();
+  const authService = AuthService.getInstance();
+
   const dbManager = DatabaseManager.getInstance();
 
   const adminEmail = process.env.ADMIN_EMAIL || 'admin@example.com';
@@ -194,15 +197,29 @@ export async function seedBackend(): Promise<void> {
     // Initialize reserved secrets for edge functions
     // Add INSFORGE_INTERNAL_URL for Deno-to-backend container communication
     const insforgInternalUrl = 'http://insforge:7130';
-    const existingSecret = await secretService.getSecretByKey('INSFORGE_INTERNAL_URL');
+    const existingInternalUrlSecret = await secretService.getSecretByKey('INSFORGE_INTERNAL_URL');
 
-    if (existingSecret === null) {
+    if (existingInternalUrlSecret === null) {
       await secretService.createSecret({
         key: 'INSFORGE_INTERNAL_URL',
         isReserved: true,
         value: insforgInternalUrl,
       });
-      logger.info('✅ System secrets initialized');
+      logger.info('✅ INSFORGE_INTERNAL_URL secret initialized');
+    }
+
+    // Add ANON_KEY for public edge function access
+    const existingAnonKeySecret = await secretService.getSecretByKey('ANON_KEY');
+
+    if (existingAnonKeySecret === null) {
+      const anonToken = authService.generateAnonToken();
+
+      await secretService.createSecret({
+        key: 'ANON_KEY',
+        isReserved: true,
+        value: anonToken,
+      });
+      logger.info('✅ ANON_KEY secret initialized');
     }
 
     logger.info(`API key generated: ${apiKey}`);
