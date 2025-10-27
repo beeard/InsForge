@@ -5,16 +5,17 @@ import { Button, SearchInput, SelectionClearButton, DeleteActionButton } from '@
 import { UsersTab } from '@/features/auth/components/UsersTab';
 import { Tooltip, TooltipContent, TooltipProvider } from '@/components/radix/Tooltip';
 import { UserFormDialog } from '@/features/auth/components/UserFormDialog';
-import { AuthMethodTab } from '@/features/auth/components/AuthMethodTab';
+import { ConfigurationTab } from '@/features/auth/components/ConfigurationTab';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useToast } from '@/lib/hooks/useToast';
 import { cn } from '@/lib/utils/utils';
 import { useUsers } from '@/features/auth/hooks/useUsers';
+import { AuthTab } from '@/features/auth/helpers';
 
 export default function AuthenticationPage() {
   const location = useLocation();
   const [selectedSection, setSelectedSection] = useState<string>(
-    location.state?.initialTab || 'users'
+    location.state?.initialTab || AuthTab.USERS
   );
   const [searchQuery, setSearchQuery] = useState('');
   const [addDialogOpen, setAddDialogOpen] = useState(false);
@@ -45,14 +46,14 @@ export default function AuthenticationPage() {
 
   const authSections = [
     {
-      id: 'users',
+      id: AuthTab.USERS,
       name: 'Users',
       icon: Users,
       description: 'Manage user accounts',
     },
     {
-      id: 'auth-methods',
-      name: 'Auth Methods',
+      id: AuthTab.CONFIGURATION,
+      name: 'Configuration',
       icon: Key,
       description: 'Configure authentication',
     },
@@ -84,7 +85,7 @@ export default function AuthenticationPage() {
       {/* Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Users Section Header */}
-        {selectedSection === 'users' && (
+        {selectedSection === AuthTab.USERS && (
           <div className="px-3 py-4 dark:bg-neutral-800">
             <div className="flex items-center justify-between">
               {selectedRows.size > 0 ? (
@@ -135,7 +136,7 @@ export default function AuthenticationPage() {
 
         {/* Main Content */}
 
-        {selectedSection === 'users' && (
+        {selectedSection === AuthTab.USERS && (
           <UsersTab
             searchQuery={searchQuery}
             selectedRows={selectedRows}
@@ -143,7 +144,7 @@ export default function AuthenticationPage() {
           />
         )}
 
-        {selectedSection === 'auth-methods' && <AuthMethodTab />}
+        {selectedSection === AuthTab.CONFIGURATION && <ConfigurationTab />}
       </div>
 
       <UserFormDialog open={addDialogOpen} onOpenChange={setAddDialogOpen} />

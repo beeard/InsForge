@@ -1,0 +1,226 @@
+import { useEffect } from 'react';
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Button } from '@/components/radix/Button';
+import { Input } from '@/components/radix/Input';
+import { Switch } from '@/components/radix/Switch';
+import { Checkbox } from '@/components/Checkbox';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/radix/Dialog';
+import {
+  updateEmailAuthConfigRequestSchema,
+  type UpdateEmailAuthConfigRequest,
+} from '@insforge/shared-schemas';
+
+interface EmailConfigDialogProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSuccess?: () => void;
+}
+
+export function EmailConfigDialog({ isOpen, onClose, onSuccess }: EmailConfigDialogProps) {
+  const form = useForm<UpdateEmailAuthConfigRequest>({
+    resolver: zodResolver(updateEmailAuthConfigRequestSchema),
+    defaultValues: {
+      requireEmailVerification: false,
+      passwordMinLength: 6,
+      requireNumber: false,
+      requireLowercase: false,
+      requireUppercase: false,
+      requireSpecialChar: false,
+    },
+  });
+
+  const requireEmailVerification = form.watch('requireEmailVerification');
+  const passwordMinLength = form.watch('passwordMinLength');
+
+  // Reset form when dialog opens
+  useEffect(() => {
+    if (isOpen) {
+      // TODO: Load existing configuration from backend
+      form.reset({
+        requireEmailVerification: false,
+        passwordMinLength: 6,
+        requireNumber: false,
+        requireLowercase: false,
+        requireUppercase: false,
+        requireSpecialChar: false,
+      });
+    }
+  }, [form, isOpen]);
+
+  const handleSubmitData = (data: UpdateEmailAuthConfigRequest) => {
+    try {
+      // TODO: Save configuration to backend
+      console.log('Saving email config:', data);
+
+      // Call success callback if provided
+      if (onSuccess) {
+        onSuccess();
+      }
+      // Close dialog
+      onClose();
+    } catch (error) {
+      console.error('Error saving email config:', error);
+    }
+  };
+
+  const handleSubmit = () => {
+    void form.handleSubmit(handleSubmitData)();
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-[700px] dark:bg-neutral-800 dark:text-white p-0 gap-0">
+        <DialogHeader className="px-6 py-3 border-b border-zinc-200 dark:border-neutral-700">
+          <DialogTitle>Email Authentication</DialogTitle>
+        </DialogHeader>
+
+        <form onSubmit={(e) => e.preventDefault()} className="flex flex-col">
+          <div className="space-y-6 p-6">
+            {/* Email Verification Toggle */}
+            <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-1">
+                <span className="text-sm font-medium text-gray-900 dark:text-white">
+                  Require Email Verification
+                </span>
+                <span className="text-xs text-zinc-500 dark:text-neutral-400">
+                  Users must verify their email address before they can sign in
+                </span>
+              </div>
+              <Controller
+                name="requireEmailVerification"
+                control={form.control}
+                render={({ field }) => (
+                  <Switch
+                    checked={field.value}
+                    onCheckedChange={(value) => {
+                      field.onChange(value);
+                    }}
+                  />
+                )}
+              />
+            </div>
+          </div>
+
+          {/* Password Requirements Section */}
+          <div className="space-y-6 p-6 border-t border-zinc-200 dark:border-neutral-700">
+            {/* Password Length */}
+            <div className="flex flex-row items-center justify-between gap-10">
+              <div className="flex flex-col gap-1">
+                <label className="text-sm text-zinc-950 dark:text-white">
+                  Minimum Password Length
+                </label>
+                <span className="text-xs text-zinc-500 dark:text-neutral-400">
+                  Must be between 4 and 128 characters
+                </span>
+              </div>
+              <Input
+                type="number"
+                min="4"
+                max="128"
+                {...form.register('passwordMinLength', { valueAsNumber: true })}
+                className="w-[340px] dark:bg-neutral-900 dark:placeholder:text-neutral-400 dark:border-neutral-700 dark:text-white"
+              />
+            </div>
+
+            {/* Password Strength Checkboxes */}
+            <div className="flex flex-col gap-3">
+              <label className="text-sm text-zinc-950 dark:text-white">
+                Password Strength Requirements
+              </label>
+              <div className="space-y-3 pl-1">
+                <Controller
+                  name="requireNumber"
+                  control={form.control}
+                  render={({ field }) => (
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <Checkbox
+                        checked={field.value}
+                        onChange={(checked) => field.onChange(checked)}
+                      />
+                      <span className="text-sm text-gray-700 dark:text-gray-300">
+                        At least 1 number
+                      </span>
+                    </label>
+                  )}
+                />
+
+                <Controller
+                  name="requireLowercase"
+                  control={form.control}
+                  render={({ field }) => (
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <Checkbox
+                        checked={field.value}
+                        onChange={(checked) => field.onChange(checked)}
+                      />
+                      <span className="text-sm text-gray-700 dark:text-gray-300">
+                        At least 1 lowercase character
+                      </span>
+                    </label>
+                  )}
+                />
+
+                <Controller
+                  name="requireUppercase"
+                  control={form.control}
+                  render={({ field }) => (
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <Checkbox
+                        checked={field.value}
+                        onChange={(checked) => field.onChange(checked)}
+                      />
+                      <span className="text-sm text-gray-700 dark:text-gray-300">
+                        At least 1 uppercase character
+                      </span>
+                    </label>
+                  )}
+                />
+
+                <Controller
+                  name="requireSpecialChar"
+                  control={form.control}
+                  render={({ field }) => (
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <Checkbox
+                        checked={field.value}
+                        onChange={(checked) => field.onChange(checked)}
+                      />
+                      <span className="text-sm text-gray-700 dark:text-gray-300">
+                        At least 1 special character
+                      </span>
+                    </label>
+                  )}
+                />
+              </div>
+            </div>
+          </div>
+        </form>
+
+        <DialogFooter className="p-6 border-t border-zinc-200 dark:border-neutral-700">
+          <Button
+            type="button"
+            className="h-9 w-30 px-3 py-2 dark:bg-neutral-600 dark:text-white dark:border-transparent dark:hover:bg-neutral-700"
+            variant="outline"
+            onClick={onClose}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            onClick={handleSubmit}
+            className="h-9 w-30 px-3 py-2 dark:bg-emerald-300 dark:text-black dark:hover:bg-emerald-400"
+          >
+            Save
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
