@@ -7,6 +7,7 @@ import {
   roleSchema,
   userSchema,
   oAuthConfigSchema,
+  emailAuthConfigSchema,
 } from './auth.schema';
 
 // ============================================================================
@@ -192,6 +193,24 @@ export const listOAuthConfigsResponseSchema = z.object({
 });
 
 // ============================================================================
+// Email Authentication Configuration schemas
+// ============================================================================
+
+/**
+ * PUT /api/auth/email/config - Update Email authentication configuration
+ */
+export const updateEmailAuthConfigRequestSchema = emailAuthConfigSchema.omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+/**
+ * Response for GET /api/auth/email/config
+ */
+export const getEmailAuthConfigResponseSchema = emailAuthConfigSchema;
+
+// ============================================================================
 // Error response schema
 // ============================================================================
 
@@ -217,6 +236,7 @@ export type ListUsersRequest = z.infer<typeof listUsersRequestSchema>;
 export type DeleteUsersRequest = z.infer<typeof deleteUsersRequestSchema>;
 export type CreateOAuthConfigRequest = z.infer<typeof createOAuthConfigRequestSchema>;
 export type UpdateOAuthConfigRequest = z.infer<typeof updateOAuthConfigRequestSchema>;
+export type UpdateEmailAuthConfigRequest = z.infer<typeof updateEmailAuthConfigRequestSchema>;
 
 // Response types for type-safe responses
 export type CreateUserResponse = z.infer<typeof createUserResponseSchema>;
@@ -227,5 +247,6 @@ export type ListUsersResponse = z.infer<typeof listUsersResponseSchema>;
 export type DeleteUsersResponse = z.infer<typeof deleteUsersResponseSchema>;
 export type GetOauthUrlResponse = z.infer<typeof getOauthUrlResponseSchema>;
 export type ListOAuthConfigsResponse = z.infer<typeof listOAuthConfigsResponseSchema>;
+export type GetEmailAuthConfigResponse = z.infer<typeof getEmailAuthConfigResponseSchema>;
 
 export type AuthErrorResponse = z.infer<typeof authErrorResponseSchema>;

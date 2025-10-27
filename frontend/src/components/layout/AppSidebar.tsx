@@ -39,7 +39,7 @@ interface NavigationProps {
 
 const navigation: NavigationProps[] = [
   { name: 'Dashboard', href: '/dashboard', icon: Home },
-  { name: 'Authentications', href: '/dashboard/authentication', icon: UserRoundCog },
+  { name: 'Authentication', href: '/dashboard/authentication', icon: UserRoundCog },
   { name: 'Database', href: '/dashboard/database', icon: Database },
   { name: 'Storage', href: '/dashboard/storage', icon: HardDrive },
   { name: 'Functions', href: '/dashboard/functions', icon: Code2 },

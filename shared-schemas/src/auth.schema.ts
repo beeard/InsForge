@@ -85,6 +85,19 @@ export const oAuthConfigSchema = z.object({
   updatedAt: z.string(), // PostgreSQL timestamp
 });
 
+// Email authentication configuration schema
+export const emailAuthConfigSchema = z.object({
+  id: z.string().uuid(),
+  requireEmailVerification: z.boolean(),
+  passwordMinLength: z.number().min(4).max(128),
+  requireNumber: z.boolean(),
+  requireLowercase: z.boolean(),
+  requireUppercase: z.boolean(),
+  requireSpecialChar: z.boolean(),
+  createdAt: z.string(), // PostgreSQL timestamp
+  updatedAt: z.string(), // PostgreSQL timestamp
+});
+
 /**
  * JWT token payload schema
  */
@@ -108,3 +121,4 @@ export type UserSchema = z.infer<typeof userSchema>;
 export type TokenPayloadSchema = z.infer<typeof tokenPayloadSchema>;
 export type OAuthConfigSchema = z.infer<typeof oAuthConfigSchema>;
 export type OAuthProvidersSchema = z.infer<typeof oAuthProvidersSchema>;
+export type EmailAuthConfigSchema = z.infer<typeof emailAuthConfigSchema>;

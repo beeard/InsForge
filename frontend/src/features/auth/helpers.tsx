@@ -7,6 +7,11 @@ import LinkedIn from '@/assets/logos/linkedin.svg?react';
 import Facebook from '@/assets/logos/facebook.svg?react';
 import type { OAuthProvidersSchema } from '@insforge/shared-schemas';
 
+export enum AuthTab {
+  USERS = 'users',
+  CONFIGURATION = 'configuration',
+}
+
 export interface OAuthProviderInfo {
   id: OAuthProvidersSchema;
   name: string;
