@@ -16,7 +16,7 @@ export class OAuthConfigService {
   async getConfigByProvider(
     provider: string
   ): Promise<OAuthConfigSchema & { clientSecret?: string }> {
-    return apiClient.request(`/auth/oauth/configs/${provider}`);
+    return apiClient.request(`/auth/oauth/${provider}/config`);
   }
 
   // Create new OAuth configuration
@@ -32,7 +32,7 @@ export class OAuthConfigService {
     provider: string,
     config: UpdateOAuthConfigRequest
   ): Promise<OAuthConfigSchema> {
-    return apiClient.request(`/auth/oauth/configs/${provider}`, {
+    return apiClient.request(`/auth/oauth/${provider}/config`, {
       method: 'PUT',
       body: JSON.stringify(config),
     });
@@ -40,7 +40,7 @@ export class OAuthConfigService {
 
   // Delete OAuth configuration
   async deleteConfig(provider: string): Promise<{ success: boolean; message: string }> {
-    return apiClient.request(`/auth/oauth/configs/${provider}`, {
+    return apiClient.request(`/auth/oauth/${provider}/config`, {
       method: 'DELETE',
     });
   }
