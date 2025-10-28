@@ -65,10 +65,13 @@ const { data, error } = await insforge.storage
   .from('avatars')
   .upload('user-123/avatar.jpg', fileObject)
 
-// Save URL to database
+// Save BOTH url and key to database
 await insforge.database
   .from('users')
-  .update({ avatar_url: data.url })
+  .update({
+    avatar_url: data.url,
+    avatar_key: data.key  // Save key for download/delete operations
+  })
   .eq('id', 'user-123')
 ```
 
@@ -121,10 +124,14 @@ const { data, error } = await insforge.storage
   .from('uploads')
   .uploadAuto(fileObject)
 
-// Save to database with auto-generated key
+// Save url and key to database
 await insforge.database
   .from('posts')
-  .insert([{ image_url: data.url, user_id: userId }])
+  .insert([{
+    image_url: data.url,
+    image_key: data.key,  // Save key for download/delete operations
+    user_id: userId
+  }])
 ```
 
 ### Output
@@ -165,12 +172,22 @@ Download a file as Blob.
 ### Example
 
 ```javascript
+// 1. Get the file key from your database
+const { data: user, error: dbError } = await insforge.database
+  .from('users')
+  .select('avatar_key')
+  .eq('id', 'user-123')
+  .single()
+
+// 2. Download the file using the key
 const { data: blob, error } = await insforge.storage
   .from('avatars')
-  .download('user-123/avatar.jpg')
+  .download(user.avatar_key)
 
-// Create download link
+// 3. Create download link or display image
 const url = URL.createObjectURL(blob)
+const img = document.querySelector('img')
+img.src = url
 ```
 
 ### Output
@@ -204,9 +221,23 @@ Delete a file from storage.
 ### Example
 
 ```javascript
+// 1. Get the file key from your database
+const { data: user, error: dbError } = await insforge.database
+  .from('users')
+  .select('avatar_key')
+  .eq('id', 'user-123')
+  .single()
+
+// 2. Delete the file from storage
 const { data, error } = await insforge.storage
   .from('avatars')
-  .remove('user-123/old-avatar.jpg')
+  .remove(user.avatar_key)
+
+// 3. Clear the database reference
+await insforge.database
+  .from('users')
+  .update({ avatar_url: null, avatar_key: null })
+  .eq('id', 'user-123')
 ```
 
 ### Output
