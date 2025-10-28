@@ -7,11 +7,7 @@ import { ERROR_CODES } from '@/types/error-constants.js';
 import { successResponse } from '@/utils/response.js';
 import { AuthRequest, verifyAdmin } from '@/api/middleware/auth.js';
 import oauthRouter from './auth.oauth.js';
-import {
-  emailVerificationLimiter,
-  otpRequestLimiter,
-  verificationAttemptLimiter,
-} from '@/api/middleware/rate-limit.js';
+import { sendEmailOTPLimiter, verifyOTPLimiter } from '@/api/middleware/rate-limiters.js';
 import {
   userIdSchema,
   createUserRequestSchema,
@@ -19,11 +15,11 @@ import {
   createAdminSessionRequestSchema,
   deleteUsersRequestSchema,
   listUsersRequestSchema,
-  requestEmailVerificationSchema,
-  requestOneTimePasswordSchema,
+  resendVerificationEmailRequestSchema,
   verifyEmailRequestSchema,
-  verifyOneTimePasswordRequestSchema,
   updateEmailAuthConfigRequestSchema,
+  sendResetPasswordEmailRequestSchema,
+  resetPasswordRequestSchema,
   type CreateUserResponse,
   type CreateSessionResponse,
   type CreateAdminSessionResponse,
@@ -446,13 +442,13 @@ router.post('/tokens/anon', verifyAdmin, (_req: Request, res: Response, next: Ne
   }
 });
 
-// POST /api/auth/request-email-verification - Request email verification
+// POST /api/auth/resend-verification-email - Resend email verification code
 router.post(
-  '/request-email-verification',
-  emailVerificationLimiter,
+  '/resend-verification-email',
+  sendEmailOTPLimiter,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const validationResult = requestEmailVerificationSchema.safeParse(req.body);
+      const validationResult = resendVerificationEmailRequestSchema.safeParse(req.body);
       if (!validationResult.success) {
         throw new AppError(
           validationResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', '),
@@ -462,31 +458,21 @@ router.post(
       }
 
       const { email } = validationResult.data;
-      await authService.requestEmailVerification(email);
-      successResponse(res, { message: 'Email verification sent if the email is registered' });
-    } catch (error) {
-      next(error);
-    }
-  }
-);
 
-// POST /api/auth/request-one-time-password - Request one-time password (OTP)
-router.post(
-  '/request-one-time-password',
-  otpRequestLimiter,
-  async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const validationResult = requestOneTimePasswordSchema.safeParse(req.body);
-      if (!validationResult.success) {
-        throw new AppError(
-          validationResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', '),
-          400,
-          ERROR_CODES.INVALID_INPUT
-        );
+      // Attempt to send verification email, but don't expose whether user exists
+      try {
+        await authService.sendVerificationEmail(email);
+      } catch {
+        // Silently catch errors to prevent user enumeration
+        // Rate limiting still applies to prevent abuse
       }
-      const { email } = validationResult.data;
-      await authService.requestOneTimePassword(email);
-      successResponse(res, { message: 'One-time password sent if the email is registered' });
+
+      // Always return 202 Accepted with generic message
+      res.status(202).json({
+        success: true,
+        message:
+          'If your email is registered, we have sent you a verification code. Please check your inbox.',
+      });
     } catch (error) {
       next(error);
     }
@@ -496,7 +482,7 @@ router.post(
 // POST /api/auth/verify-email - Verify email with code
 router.post(
   '/verify-email',
-  verificationAttemptLimiter,
+  verifyOTPLimiter,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const validationResult = verifyEmailRequestSchema.safeParse(req.body);
@@ -516,13 +502,13 @@ router.post(
   }
 );
 
-// POST /api/auth/verify-one-time-password - Verify one-time password (OTP)
+// POST /api/auth/send-reset-password-email - Send password reset code
 router.post(
-  '/verify-one-time-password',
-  verificationAttemptLimiter,
+  '/send-reset-password-email',
+  sendEmailOTPLimiter,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const validationResult = verifyOneTimePasswordRequestSchema.safeParse(req.body);
+      const validationResult = sendResetPasswordEmailRequestSchema.safeParse(req.body);
       if (!validationResult.success) {
         throw new AppError(
           validationResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', '),
@@ -530,33 +516,53 @@ router.post(
           ERROR_CODES.INVALID_INPUT
         );
       }
-      const { email, otp } = validationResult.data;
-      const result: CreateSessionResponse = await authService.verifyOneTimePassword(email, otp);
-      successResponse(res, result);
+
+      const { email } = validationResult.data;
+
+      // Attempt to send password reset email, but don't expose whether user exists
+      try {
+        await authService.sendResetPasswordEmail(email);
+      } catch {
+        // Silently catch errors to prevent user enumeration
+        // Rate limiting still applies to prevent abuse
+      }
+
+      // Always return 202 Accepted with generic message
+      res.status(202).json({
+        success: true,
+        message:
+          'If your email is registered, we have sent you a password reset code. Please check your inbox.',
+      });
     } catch (error) {
       next(error);
     }
   }
 );
 
-// router.post('/auth/request-password-reset', async (req: Request, res: Response, next: NextFunction) => {
-//   try {
-//     const { email } = req.body;
-//     await authService.requestPasswordReset(email);
-//     successResponse(res, { message: 'Password reset email sent if the email is registered' });
-//   } catch (error) {
-//     next(error);
-//   }
-// });
+// POST /api/auth/reset-password - Reset password with code
+router.post(
+  '/reset-password',
+  verifyOTPLimiter,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const validationResult = resetPasswordRequestSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        throw new AppError(
+          validationResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', '),
+          400,
+          ERROR_CODES.INVALID_INPUT
+        );
+      }
 
-// router.post('/auth/reset-password', async (req: Request, res: Response, next: NextFunction) => {
-//   try {
-//     const { token, newPassword } = req.body;
-//     await authService.resetPassword(token, newPassword);
-//     successResponse(res, { message: 'Password has been reset successfully' });
-//   } catch (error) {
-//     next(error);
-//   }
-// });
+      const { email, newPassword, verificationCode } = validationResult.data;
+      await authService.resetPassword(email, newPassword, verificationCode);
+      successResponse(res, {
+        message: 'Password reset successfully. Please login with your new password.',
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
 export default router;

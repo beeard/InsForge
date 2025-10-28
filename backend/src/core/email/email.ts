@@ -8,7 +8,7 @@ import { ERROR_CODES } from '@/types/error-constants';
 /**
  * Email template types supported by the cloud backend
  */
-export type EmailTemplate = 'email-verification' | 'reset-password' | 'request-otp';
+export type EmailTemplate = 'email-verification' | 'reset-password';
 
 /**
  * Email service for sending emails via cloud backend
@@ -89,9 +89,9 @@ export class EmailService {
         );
       }
 
-      if (!['email-verification', 'reset-password', 'request-otp'].includes(template)) {
+      if (!['email-verification', 'reset-password'].includes(template)) {
         throw new AppError(
-          `Invalid template type: ${template}. Must be 'email-verification' or 'reset-password' or 'request-otp'`,
+          `Invalid template type: ${template}. Must be 'email-verification' or 'reset-password'`,
           400,
           ERROR_CODES.INVALID_INPUT
         );
@@ -215,15 +215,5 @@ export class EmailService {
     resetCode: string
   ): Promise<void> {
     return this.sendWithTemplate(email, name, resetCode, 'reset-password');
-  }
-
-  /**
-   * Send OTP request code
-   * @param email - Recipient email address
-   * @param name - Recipient name
-   * @param otp - One-time password to send
-   */
-  public async sendOTPRequestEmail(email: string, name: string, otp: string): Promise<void> {
-    return this.sendWithTemplate(email, name, otp, 'request-otp');
   }
 }

@@ -21,8 +21,9 @@ import type {
 } from '@insforge/shared-schemas';
 import { OAuthConfigService } from './oauth.config';
 import { AuthConfigService } from './auth.config';
+import { AuthOTPService, EmailOTPPurpose } from './auth.otp';
 import { validatePassword } from '@/utils/validations';
-import { getPasswordRequirementsMessage } from '@/utils/helpers';
+import { getPasswordRequirementsMessage } from '@/utils/utils';
 import {
   FacebookUserInfo,
   GitHubEmailInfo,
@@ -37,7 +38,6 @@ import { ADMIN_ID } from '@/utils/constants';
 import { getApiBaseUrl } from '@/utils/environment';
 import { AppError } from '@/api/middleware/error';
 import { ERROR_CODES } from '@/types/error-constants';
-import { generateNumericCode } from '@/utils/uuid';
 import { EmailService } from '../email';
 
 const JWT_SECRET = () => process.env.JWT_SECRET ?? '';
@@ -243,165 +243,154 @@ export class AuthService {
   }
 
   /**
-   * Request email verification
+   * Send verification email
+   * Creates an OTP and sends it via email for email verification
    */
-  async requestEmailVerification(email: string): Promise<void> {
-    // Implementation for sending email verification
+  async sendVerificationEmail(email: string): Promise<void> {
+    // Check if user exists
     const dbUser = await this.db.prepare('SELECT * FROM _accounts WHERE email = ?').get(email);
     if (!dbUser) {
       throw new Error('User not found');
     }
 
-    // Generate verification code and handle conflicts
-    let verificationCode = generateNumericCode(6);
-    let codeLength = 6;
-    const maxRetries = 1; // Allow up to 1 retry (6, 7 digit codes)
-    let retries = 0;
-
-    while (retries <= maxRetries) {
-      try {
-        const expiresAt = new Date(Date.now() + 3600000).toISOString();
-        await this.db
-          .prepare(
-            'UPDATE _accounts SET verify_email_code = ?, verify_email_code_expires_at = ? WHERE email = ?'
-          )
-          .run(verificationCode, expiresAt, email);
-        break; // Success, exit loop
-      } catch (error) {
-        // Check if error is due to unique constraint violation
-        const isUniqueConstraintError =
-          error instanceof Error &&
-          (error.message.includes('UNIQUE constraint failed') ||
-            error.message.includes('verify_email_code'));
-
-        if (isUniqueConstraintError && retries < maxRetries) {
-          // Retry with longer code
-          retries++;
-          codeLength++;
-          verificationCode = generateNumericCode(codeLength);
-          logger.warn(`Verification code conflict, retrying with ${codeLength} digits`, {
-            dbUserId: dbUser.id,
-            attempt: retries + 1,
-          });
-        } else {
-          // Either not a conflict error, or max retries reached
-          logger.error('Failed to update email verification code:', error);
-          throw new Error('Failed to initiate email verification');
-        }
-      }
-    }
+    // Create OTP using the OTP service
+    const otpService = AuthOTPService.getInstance();
+    const { code } = await otpService.createEmailOTP(email, EmailOTPPurpose.VERIFY_EMAIL);
 
     // Send email with verification code
     const emailService = EmailService.getInstance();
-    await emailService.sendVerificationEmail(email, dbUser.name || 'User', verificationCode);
+    await emailService.sendVerificationEmail(email, dbUser.name || 'User', code);
   }
 
   /**
    * Verify email
+   * Verifies the email OTP and updates the account in a single transaction
    */
   async verifyEmail(email: string, verificationCode: string): Promise<CreateSessionResponse> {
-    // Implementation for verifying email
-    const dbUser = await this.db.prepare('SELECT * FROM _accounts WHERE email = ?').get(email);
-    if (!dbUser) {
-      throw new Error('User not found');
-    }
-    // ignore expiration for now
-    if (dbUser.verify_email_code !== verificationCode) {
-      throw new Error('Invalid verification code');
-    }
+    const dbManager = DatabaseManager.getInstance();
+    const pool = dbManager.getPool();
+    const client = await pool.connect();
 
-    await this.db
-      .prepare(
-        'UPDATE _accounts SET email_verified = true, verify_email_code = NULL, verify_email_code_expires_at = NULL WHERE email = ?'
-      )
-      .run(email);
+    try {
+      await client.query('BEGIN');
 
-    dbUser.email_verified = true;
-    const user = this.dbUserToApiUser(dbUser);
-    const accessToken = this.generateToken({
-      sub: dbUser.id,
-      email: dbUser.email,
-      role: 'authenticated',
-    });
+      // Verify OTP using the OTP service (within the same transaction)
+      const otpService = AuthOTPService.getInstance();
+      await otpService.verifyEmailOTP(
+        email,
+        EmailOTPPurpose.VERIFY_EMAIL,
+        verificationCode,
+        client
+      );
 
-    return { user, accessToken };
-  }
+      // Update account email verification status
+      const result = await client.query(
+        `UPDATE _accounts
+         SET email_verified = true, updated_at = NOW()
+         WHERE email = $1
+         RETURNING id, email, name, email_verified, created_at, updated_at`,
+        [email]
+      );
 
-  async requestOneTimePassword(email: string): Promise<void> {
-    // Implementation for sending one-time password
-    const dbUser = await this.db.prepare('SELECT * FROM _accounts WHERE email = ?').get(email);
-    if (!dbUser) {
-      throw new Error('User not found');
-    }
-
-    // Generate verification code and handle conflicts
-    let verificationCode = generateNumericCode(6);
-    let codeLength = 6;
-    const maxRetries = 1; // Allow up to 1 retry (6, 7 digit codes)
-    let retries = 0;
-
-    while (retries <= maxRetries) {
-      try {
-        const expiresAt = new Date(Date.now() + 3600000).toISOString();
-        await this.db
-          .prepare('UPDATE _accounts SET otp_code = ?, otp_code_expires_at = ? WHERE email = ?')
-          .run(verificationCode, expiresAt, email);
-        break; // Success, exit loop
-      } catch (error) {
-        // Check if error is due to unique constraint violation
-        const isUniqueConstraintError =
-          error instanceof Error &&
-          (error.message.includes('UNIQUE constraint failed') ||
-            error.message.includes('otp_code'));
-
-        if (isUniqueConstraintError && retries < maxRetries) {
-          // Retry with longer code
-          retries++;
-          codeLength++;
-          verificationCode = generateNumericCode(codeLength);
-          logger.warn(`Verification code conflict, retrying with ${codeLength} digits`, {
-            dbUserId: dbUser.id,
-            attempt: retries + 1,
-          });
-        } else {
-          // Either not a conflict error, or max retries reached
-          logger.error('Failed to update OTP code:', error);
-          throw new Error('Failed to initiate OTP request');
-        }
+      if (result.rows.length === 0) {
+        throw new Error('User not found');
       }
-    }
 
-    // Send email with verification code
-    const emailService = EmailService.getInstance();
-    await emailService.sendOTPRequestEmail(email, dbUser.name || 'User', verificationCode);
+      await client.query('COMMIT');
+
+      const dbUser = result.rows[0];
+      const user = this.dbUserToApiUser(dbUser);
+      const accessToken = this.generateToken({
+        sub: dbUser.id,
+        email: dbUser.email,
+        role: 'authenticated',
+      });
+
+      return { user, accessToken };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
-  async verifyOneTimePassword(email: string, otp: string): Promise<CreateSessionResponse> {
-    // Implementation for verifying one-time password
+  /**
+   * Send reset password email
+   * Creates an OTP and sends it via email for password reset
+   */
+  async sendResetPasswordEmail(email: string): Promise<void> {
+    // Check if user exists
     const dbUser = await this.db.prepare('SELECT * FROM _accounts WHERE email = ?').get(email);
     if (!dbUser) {
       throw new Error('User not found');
     }
-    // ignore expiration for now
-    if (dbUser.otp_code !== otp) {
-      throw new Error('Invalid one-time password');
+
+    // Create OTP using the OTP service
+    const otpService = AuthOTPService.getInstance();
+    const { code } = await otpService.createEmailOTP(email, EmailOTPPurpose.RESET_PASSWORD);
+
+    // Send email with reset password code
+    const emailService = EmailService.getInstance();
+    await emailService.sendPasswordResetEmail(email, dbUser.name || 'User', code);
+  }
+
+  /**
+   * Reset password
+   * Verifies the OTP and updates the password in a single transaction
+   * Note: Does not return access token - user must login again with new password
+   */
+  async resetPassword(email: string, newPassword: string, verificationCode: string): Promise<void> {
+    // Validate password first before verifying OTP
+    // This allows the user to retry with the same OTP if password is invalid
+    const authConfigService = AuthConfigService.getInstance();
+    const emailAuthConfig = await authConfigService.getEmailConfig();
+
+    if (!validatePassword(newPassword, emailAuthConfig)) {
+      throw new AppError(getPasswordRequirementsMessage(emailAuthConfig), 400, 'INVALID_INPUT');
     }
 
-    await this.db
-      .prepare(
-        'UPDATE _accounts SET email_verified = true, otp_code = NULL, otp_code_expires_at = NULL WHERE email = ?'
-      )
-      .run(email);
+    const dbManager = DatabaseManager.getInstance();
+    const pool = dbManager.getPool();
+    const client = await pool.connect();
 
-    dbUser.email_verified = true;
-    const user = this.dbUserToApiUser(dbUser);
-    const accessToken = this.generateToken({
-      sub: dbUser.id,
-      email: dbUser.email,
-      role: 'authenticated',
-    });
+    try {
+      await client.query('BEGIN');
 
-    return { user, accessToken };
+      // Verify OTP using the OTP service (within the same transaction)
+      const otpService = AuthOTPService.getInstance();
+      await otpService.verifyEmailOTP(
+        email,
+        EmailOTPPurpose.RESET_PASSWORD,
+        verificationCode,
+        client
+      );
+
+      // Hash the new password
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+      // Update password in the database
+      const result = await client.query(
+        `UPDATE _accounts
+         SET password = $1, updated_at = NOW()
+         WHERE email = $2
+         RETURNING id`,
+        [hashedPassword, email]
+      );
+
+      if (result.rows.length === 0) {
+        throw new Error('User not found');
+      }
+
+      await client.query('COMMIT');
+
+      logger.info('Password reset successfully', { email });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   /**

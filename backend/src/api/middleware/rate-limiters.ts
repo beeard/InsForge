@@ -27,20 +27,20 @@ setInterval(
 );
 
 /**
- * Per-IP rate limiter for email verification requests
+ * Per-IP rate limiter for email otp requests
  * Prevents brute-force attacks from single IP
  *
  * Limits: 5 requests per 15 minutes per IP
  */
-export const emailVerificationRateLimiter = rateLimit({
+export const sendEmailOTPRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 5, // Limit each IP to 5 requests per windowMs
-  message: 'Too many email verification requests from this IP, please try again later',
+  message: 'Too many send email verification requests from this IP, please try again later',
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
   handler: (_req: Request, _res: Response) => {
     throw new AppError(
-      'Too many email verification requests from this IP. Please try again in 15 minutes.',
+      'Too many send email verification requests from this IP. Please try again in 15 minutes.',
       429,
       ERROR_CODES.TOO_MANY_REQUESTS
     );
@@ -52,35 +52,12 @@ export const emailVerificationRateLimiter = rateLimit({
 });
 
 /**
- * Per-IP rate limiter for OTP requests
- * Prevents brute-force attacks from single IP
- *
- * Limits: 5 requests per 15 minutes per IP
- */
-export const otpRequestRateLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // Limit each IP to 5 requests per windowMs
-  message: 'Too many OTP requests from this IP, please try again later',
-  standardHeaders: true,
-  legacyHeaders: false,
-  handler: (_req: Request, _res: Response) => {
-    throw new AppError(
-      'Too many OTP requests from this IP. Please try again in 15 minutes.',
-      429,
-      ERROR_CODES.TOO_MANY_REQUESTS
-    );
-  },
-  skipSuccessfulRequests: false,
-  skipFailedRequests: true,
-});
-
-/**
- * Per-IP rate limiter for email/OTP verification attempts
+ * Per-IP rate limiter for email OTP verification attempts
  * Prevents brute-force code guessing
  *
  * Limits: 10 attempts per 15 minutes per IP
  */
-export const verificationAttemptRateLimiter = rateLimit({
+export const verifyOTPRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 10, // Limit each IP to 10 verification attempts per windowMs
   message: 'Too many verification attempts from this IP, please try again later',
@@ -133,25 +110,16 @@ export const perEmailCooldown = (cooldownMs: number = 60000) => {
 };
 
 /**
- * Combined rate limiter for email verification requests
+ * Combined rate limiter for sending email otp requests
  * Applies both per-IP and per-email limits
  */
-export const emailVerificationLimiter = [
-  emailVerificationRateLimiter,
+export const sendEmailOTPLimiter = [
+  sendEmailOTPRateLimiter,
   perEmailCooldown(60000), // 60 second cooldown per email
 ];
 
 /**
- * Combined rate limiter for OTP requests
- * Applies both per-IP and per-email limits
- */
-export const otpRequestLimiter = [
-  otpRequestRateLimiter,
-  perEmailCooldown(60000), // 60 second cooldown per email
-];
-
-/**
- * Rate limiter for verification attempts (email/OTP code verification)
+ * Rate limiter for OTP verification attempts (email OTP verification)
  * Only per-IP limit, no per-email limit (to allow legitimate retries)
  */
-export const verificationAttemptLimiter = [verificationAttemptRateLimiter];
+export const verifyOTPLimiter = [verifyOTPRateLimiter];
