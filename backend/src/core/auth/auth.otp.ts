@@ -100,7 +100,6 @@ export class AuthOTPService {
       );
 
       logger.info('Email OTP created successfully', {
-        email,
         purpose,
         expiresAt: expiresAt.toISOString(),
       });
@@ -111,7 +110,7 @@ export class AuthOTPService {
         expiresAt,
       };
     } catch (error) {
-      logger.error('Failed to create email OTP', { error, email, purpose });
+      logger.error('Failed to create email OTP', { error, purpose });
       throw new AppError('Failed to create verification code', 500, ERROR_CODES.INTERNAL_ERROR);
     } finally {
       client.release();
@@ -144,11 +143,12 @@ export class AuthOTPService {
         await client.query('BEGIN');
       }
 
-      // Fetch the OTP record
+      // Fetch the OTP record with row lock to serialize verification attempts
       const result = await client.query(
         `SELECT id, email, purpose, code_hash, expires_at, consumed_at, attempts_count
          FROM _email_otps
-         WHERE email = $1 AND purpose = $2`,
+         WHERE email = $1 AND purpose = $2
+         FOR UPDATE`,
         [email, purpose]
       );
 
@@ -169,32 +169,50 @@ export class AuthOTPService {
 
       if (!isValid) {
         // Increment attempt count on failed verification
-        await client.query(
-          `UPDATE _email_otps
-           SET attempts_count = attempts_count + 1, updated_at = NOW()
-           WHERE id = $1`,
-          [otpRecord.id]
-        );
-
+        // Use separate connection if using external client to prevent rollback from undoing the increment
         if (shouldManageTransaction) {
+          await client.query(
+            `UPDATE _email_otps
+             SET attempts_count = attempts_count + 1, updated_at = NOW()
+             WHERE id = $1`,
+            [otpRecord.id]
+          );
           await client.query('COMMIT');
+        } else {
+          const tmp = await this.getPool().connect();
+          try {
+            await tmp.query(
+              `UPDATE _email_otps
+               SET attempts_count = attempts_count + 1, updated_at = NOW()
+               WHERE id = $1`,
+              [otpRecord.id]
+            );
+          } finally {
+            tmp.release();
+          }
         }
         throw new AppError('Invalid or expired verification code', 400, ERROR_CODES.INVALID_INPUT);
       }
 
-      // Mark OTP as consumed
-      await client.query(
+      // Mark OTP as consumed atomically - ensure it hasn't been consumed by a concurrent request
+      const consume = await client.query(
         `UPDATE _email_otps
          SET consumed_at = NOW(), updated_at = NOW()
-         WHERE id = $1`,
+         WHERE id = $1 AND consumed_at IS NULL`,
         [otpRecord.id]
       );
+      if (consume.rowCount !== 1) {
+        if (shouldManageTransaction) {
+          await client.query('ROLLBACK');
+        }
+        throw new AppError('Invalid or expired verification code', 400, ERROR_CODES.INVALID_INPUT);
+      }
 
       if (shouldManageTransaction) {
         await client.query('COMMIT');
       }
 
-      logger.info('Email OTP verified successfully', { email, purpose });
+      logger.info('Email OTP verified successfully', { purpose });
 
       return {
         success: true,
@@ -210,7 +228,7 @@ export class AuthOTPService {
         throw error;
       }
 
-      logger.error('Failed to verify email OTP', { error, email, purpose });
+      logger.error('Failed to verify email OTP', { error, purpose });
       throw new AppError('Failed to verify code', 500, ERROR_CODES.INTERNAL_ERROR);
     } finally {
       if (shouldManageTransaction) {

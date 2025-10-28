@@ -28,9 +28,10 @@ setInterval(
 
 /**
  * Per-IP rate limiter for email otp requests
- * Prevents brute-force attacks from single IP
+ * Prevents brute-force attacks, resource exhaustion, and enumeration from single IP
  *
  * Limits: 5 requests per 15 minutes per IP
+ * Counts ALL requests (both successful and failed) to prevent abuse
  */
 export const sendEmailOTPRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -38,17 +39,18 @@ export const sendEmailOTPRateLimiter = rateLimit({
   message: 'Too many send email verification requests from this IP, please try again later',
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
-  handler: (_req: Request, _res: Response) => {
-    throw new AppError(
-      'Too many send email verification requests from this IP. Please try again in 15 minutes.',
-      429,
-      ERROR_CODES.TOO_MANY_REQUESTS
+  handler: (_req: Request, _res: Response, next: NextFunction) => {
+    next(
+      new AppError(
+        'Too many send email verification requests from this IP. Please try again in 15 minutes.',
+        429,
+        ERROR_CODES.TOO_MANY_REQUESTS
+      )
     );
   },
-  // Skip successful requests to avoid penalizing legitimate users
+  // Count all requests (both successes and failures) to prevent resource exhaustion and enumeration
   skipSuccessfulRequests: false,
-  // Skip failed requests (don't count towards limit)
-  skipFailedRequests: true,
+  skipFailedRequests: false,
 });
 
 /**
@@ -63,11 +65,13 @@ export const verifyOTPRateLimiter = rateLimit({
   message: 'Too many verification attempts from this IP, please try again later',
   standardHeaders: true,
   legacyHeaders: false,
-  handler: (_req: Request, _res: Response) => {
-    throw new AppError(
-      'Too many verification attempts from this IP. Please try again in 15 minutes.',
-      429,
-      ERROR_CODES.TOO_MANY_REQUESTS
+  handler: (_req: Request, _res: Response, next: NextFunction) => {
+    next(
+      new AppError(
+        'Too many verification attempts from this IP. Please try again in 15 minutes.',
+        429,
+        ERROR_CODES.TOO_MANY_REQUESTS
+      )
     );
   },
   skipSuccessfulRequests: true, // Don't count successful verifications

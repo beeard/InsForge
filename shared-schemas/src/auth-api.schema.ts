@@ -65,7 +65,7 @@ export const deleteUsersRequestSchema = z.object({
 });
 
 /**
- * POST /api/auth/request-email-verification - Request email verification
+ * POST /api/auth/resend-verification-email - Resend verification email
  */
 export const resendVerificationEmailRequestSchema = z.object({
   email: emailSchema,
@@ -78,7 +78,7 @@ export const verifyEmailRequestSchema = z.object({
 });
 
 /**
- * POST /api/auth/send-reset-password-email - Send password reset email
+ * POST /api/auth/send-reset-password-email - Send reset password email
  */
 export const sendResetPasswordEmailRequestSchema = z.object({
   email: emailSchema,
@@ -239,10 +239,8 @@ export type DeleteUsersRequest = z.infer<typeof deleteUsersRequestSchema>;
 export type CreateOAuthConfigRequest = z.infer<typeof createOAuthConfigRequestSchema>;
 export type UpdateOAuthConfigRequest = z.infer<typeof updateOAuthConfigRequestSchema>;
 export type UpdateEmailAuthConfigRequest = z.infer<typeof updateEmailAuthConfigRequestSchema>;
-export type ResendVerificationEmailRequestSchema = z.infer<
-  typeof resendVerificationEmailRequestSchema
->;
-export type VerifyEmailRequestSchema = z.infer<typeof verifyEmailRequestSchema>;
+export type ResendVerificationEmailRequest = z.infer<typeof resendVerificationEmailRequestSchema>;
+export type VerifyEmailRequest = z.infer<typeof verifyEmailRequestSchema>;
 export type SendResetPasswordEmailRequest = z.infer<typeof sendResetPasswordEmailRequestSchema>;
 export type ResetPasswordRequest = z.infer<typeof resetPasswordRequestSchema>;
 

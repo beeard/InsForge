@@ -5,6 +5,122 @@ info:
   description: Authentication endpoints with separated auth and profile tables
 
 paths:
+  /api/auth/email/config:
+    get:
+      summary: Get email authentication configuration
+      description: Get current email authentication settings (admin only)
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Email authentication configuration
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  enabled:
+                    type: boolean
+                  requireEmailVerification:
+                    type: boolean
+                  allowPasswordReset:
+                    type: boolean
+                  passwordMinLength:
+                    type: integer
+                  passwordRequireUppercase:
+                    type: boolean
+                  passwordRequireLowercase:
+                    type: boolean
+                  passwordRequireNumbers:
+                    type: boolean
+                  passwordRequireSpecialChars:
+                    type: boolean
+                  createdAt:
+                    type: string
+                    format: date-time
+                  updatedAt:
+                    type: string
+                    format: date-time
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden - Admin only
+
+    put:
+      summary: Update email authentication configuration
+      description: Update email authentication settings (admin only)
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                enabled:
+                  type: boolean
+                requireEmailVerification:
+                  type: boolean
+                allowPasswordReset:
+                  type: boolean
+                passwordMinLength:
+                  type: integer
+                  minimum: 6
+                  maximum: 128
+                passwordRequireUppercase:
+                  type: boolean
+                passwordRequireLowercase:
+                  type: boolean
+                passwordRequireNumbers:
+                  type: boolean
+                passwordRequireSpecialChars:
+                  type: boolean
+      responses:
+        '200':
+          description: Configuration updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  enabled:
+                    type: boolean
+                  requireEmailVerification:
+                    type: boolean
+                  allowPasswordReset:
+                    type: boolean
+                  passwordMinLength:
+                    type: integer
+                  passwordRequireUppercase:
+                    type: boolean
+                  passwordRequireLowercase:
+                    type: boolean
+                  passwordRequireNumbers:
+                    type: boolean
+                  passwordRequireSpecialChars:
+                    type: boolean
+                  createdAt:
+                    type: string
+                    format: date-time
+                  updatedAt:
+                    type: string
+                    format: date-time
+        '400':
+          description: Invalid request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden - Admin only
+
   /api/auth/users:
     post:
       summary: Register new user
@@ -60,7 +176,11 @@ paths:
                         format: date-time
                   accessToken:
                     type: string
-                    description: JWT authentication token
+                    nullable: true
+                    description: JWT authentication token (null if email verification required)
+                  requiresEmailVerification:
+                    type: boolean
+                    description: Whether email verification is required before login
         '400':
           description: Invalid request
         '409':
@@ -168,6 +288,64 @@ paths:
         '403':
           description: Forbidden - Admin only
 
+  /api/auth/users/{userId}:
+    get:
+      summary: Get specific user
+      description: Get user details by ID (admin only)
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: User ID
+      responses:
+        '200':
+          description: User details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  email:
+                    type: string
+                  name:
+                    type: string
+                  email_verified:
+                    type: boolean
+                  created_at:
+                    type: string
+                    format: date-time
+                  updated_at:
+                    type: string
+                    format: date-time
+                  identities:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        provider:
+                          type: string
+                  provider_type:
+                    type: string
+                    enum: [Email, Social]
+        '400':
+          description: Invalid user ID format
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden - Admin only
+        '404':
+          description: User not found
+
   /api/auth/sessions:
     post:
       summary: User login
@@ -219,6 +397,8 @@ paths:
                     type: string
         '401':
           description: Invalid credentials
+        '403':
+          description: Email verification required
 
   /api/auth/sessions/current:
     get:
@@ -383,10 +563,10 @@ paths:
         '403':
           description: Forbidden - admin access required
 
-  /api/auth/request-email-verification:
+  /api/auth/resend-verification-email:
     post:
-      summary: Request email verification
-      description: Send email verification code to user's email address
+      summary: Resend email verification
+      description: Resend email verification code to user's email address
       tags:
         - Client
       requestBody:
@@ -403,16 +583,18 @@ paths:
                   format: email
                   example: user@example.com
       responses:
-        '200':
+        '202':
           description: Verification email sent (if email exists)
           content:
             application/json:
               schema:
                 type: object
                 properties:
+                  success:
+                    type: boolean
                   message:
                     type: string
-                    example: "Email verification sent if the email is registered"
+                    example: "If your email is registered, we have sent you a verification code. Please check your inbox."
         '400':
           description: Invalid request
 
@@ -475,10 +657,10 @@ paths:
         '401':
           description: Verification code expired or invalid
 
-  /api/auth/request-one-time-password:
+  /api/auth/send-reset-password-email:
     post:
-      summary: Request one-time password (OTP)
-      description: Send OTP code to user's email for passwordless login
+      summary: Send password reset email
+      description: Send password reset code to user's email address
       tags:
         - Client
       requestBody:
@@ -495,8 +677,54 @@ paths:
                   format: email
                   example: user@example.com
       responses:
+        '202':
+          description: Password reset email sent (if email exists)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                    example: "If your email is registered, we have sent you a password reset code. Please check your inbox."
+        '400':
+          description: Invalid request
+
+  /api/auth/reset-password:
+    post:
+      summary: Reset password with verification code
+      description: Reset user password using verification code sent via email
+      tags:
+        - Client
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - newPassword
+                - verificationCode
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: user@example.com
+                newPassword:
+                  type: string
+                  minLength: 8
+                  example: newSecurePassword123
+                verificationCode:
+                  type: string
+                  minLength: 4
+                  maxLength: 8
+                  example: "123456"
+      responses:
         '200':
-          description: OTP sent (if email exists)
+          description: Password reset successfully
           content:
             application/json:
               schema:
@@ -504,16 +732,46 @@ paths:
                 properties:
                   message:
                     type: string
-                    example: "One-time password sent if the email is registered"
+                    example: "Password reset successfully. Please login with your new password."
         '400':
-          description: Invalid request
+          description: Invalid request or password requirements not met
+        '401':
+          description: Verification code expired or invalid
 
-  /api/auth/verify-one-time-password:
-    post:
-      summary: Verify one-time password
-      description: Verify OTP code and create session for passwordless login
+  /api/auth/oauth/configs:
+    get:
+      summary: List all OAuth configurations
+      description: Get all configured OAuth providers (admin only)
       tags:
-        - Client
+        - Admin
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of OAuth configurations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/OAuthConfig'
+                  count:
+                    type: integer
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden - Admin only
+
+    post:
+      summary: Create OAuth configuration
+      description: Create a new OAuth provider configuration (admin only)
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -521,131 +779,224 @@ paths:
             schema:
               type: object
               required:
-                - email
-                - otp
+                - provider
               properties:
-                email:
+                provider:
                   type: string
-                  format: email
-                  example: user@example.com
-                otp:
+                  enum: [google, github, discord, linkedin, facebook, microsoft]
+                clientId:
                   type: string
-                  minLength: 4
-                  maxLength: 8
-                  example: "789012"
+                clientSecret:
+                  type: string
+                redirectUri:
+                  type: string
+                scopes:
+                  type: array
+                  items:
+                    type: string
+                useSharedKey:
+                  type: boolean
+                enabled:
+                  type: boolean
       responses:
         '200':
-          description: OTP verified successfully, session created
+          description: OAuth configuration created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthConfig'
+        '400':
+          description: Invalid request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden - Admin only
+
+  /api/auth/oauth/{provider}/config:
+    get:
+      summary: Get OAuth configuration for specific provider
+      description: Get OAuth configuration including client secret (admin only)
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [google, github, discord, linkedin, facebook, microsoft]
+      responses:
+        '200':
+          description: OAuth configuration
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/OAuthConfig'
+                  - type: object
+                    properties:
+                      clientSecret:
+                        type: string
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden - Admin only
+        '404':
+          description: Configuration not found
+
+    put:
+      summary: Update OAuth configuration
+      description: Update OAuth provider configuration (admin only)
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [google, github, discord, linkedin, facebook, microsoft]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                clientId:
+                  type: string
+                clientSecret:
+                  type: string
+                redirectUri:
+                  type: string
+                scopes:
+                  type: array
+                  items:
+                    type: string
+                useSharedKey:
+                  type: boolean
+                enabled:
+                  type: boolean
+      responses:
+        '200':
+          description: Configuration updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthConfig'
+        '400':
+          description: Invalid request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden - Admin only
+        '404':
+          description: Configuration not found
+
+    delete:
+      summary: Delete OAuth configuration
+      description: Delete OAuth provider configuration (admin only)
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [google, github, discord, linkedin, facebook, microsoft]
+      responses:
+        '200':
+          description: Configuration deleted
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  user:
-                    type: object
-                    properties:
-                      id:
-                        type: string
-                        format: uuid
-                      email:
-                        type: string
-                      name:
-                        type: string
-                      emailVerified:
-                        type: boolean
-                      createdAt:
-                        type: string
-                        format: date-time
-                      updatedAt:
-                        type: string
-                        format: date-time
-                  accessToken:
+                  success:
+                    type: boolean
+                  message:
                     type: string
-                    description: JWT authentication token
-        '400':
-          description: Invalid OTP
         '401':
-          description: OTP expired or invalid
+          description: Unauthorized
+        '403':
+          description: Forbidden - Admin only
+        '404':
+          description: Configuration not found
 
-  /api/auth/oauth/google:
+  /api/auth/oauth/{provider}:
     get:
-      summary: Initiate Google OAuth flow
+      summary: Initiate OAuth flow
+      description: Generate OAuth authorization URL for any supported provider
       tags:
         - Client
       parameters:
+        - name: provider
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [google, github, discord, linkedin, facebook, microsoft]
         - name: redirect_uri
           in: query
+          required: true
           schema:
             type: string
             format: uri
           description: URL to redirect after authentication
       responses:
-        '302':
-          description: Redirect to Google OAuth
+        '200':
+          description: OAuth authorization URL
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  authUrl:
+                    type: string
+                    format: uri
+        '400':
+          description: Invalid request or provider not supported
         '500':
           description: OAuth not configured
 
-  /api/auth/oauth/github:
-    get:
-      summary: Initiate GitHub OAuth flow
-      tags:
-        - Client
-      parameters:
-        - name: redirect_uri
-          in: query
-          schema:
-            type: string
-            format: uri
-          description: URL to redirect after authentication
-      responses:
-        '302':
-          description: Redirect to GitHub OAuth
-        '500':
-          description: OAuth not configured
-
-  /api/auth/oauth/discord:
-    get:
-      summary: Initiate Discord OAuth flow
-      tags:
-        - Client
-      parameters:
-        - name: redirect_uri
-          in: query
-          schema:
-            type: string
-            format: uri
-          description: URL to redirect after authentication
-      responses:
-        '302':
-          description: Redirect to Discord OAuth
-        '500':
-          description: OAuth not configured
-
-  /api/auth/oauth/shared/callback:
+  /api/auth/oauth/shared/callback/{state}:
     get:
       summary: Shared OAuth callback handler
-      description: Handles OAuth callbacks from all providers
+      description: Handles OAuth callbacks from InsForge Cloud shared OAuth
       tags:
         - Client
       parameters:
-        - name: code
-          in: query
-          schema:
-            type: string
-          description: Authorization code from OAuth provider
         - name: state
+          in: path
+          required: true
+          schema:
+            type: string
+          description: JWT state parameter
+        - name: success
           in: query
           schema:
             type: string
-          description: JWT encoded state with provider and redirect URL
-        - name: token
+          description: Success flag
+        - name: error
           in: query
           schema:
             type: string
-          description: Direct ID token (for Google)
+          description: Error message
+        - name: payload
+          in: query
+          schema:
+            type: string
+          description: Base64 encoded user payload
       responses:
         '302':
-          description: Redirect with access token and user info in query params
+          description: Redirect to application with access token or error
           headers:
             Location:
               schema:
@@ -655,7 +1006,7 @@ paths:
   /api/auth/oauth/{provider}/callback:
     get:
       summary: Provider-specific OAuth callback
-      description: Alternative callback endpoint for specific providers
+      description: OAuth callback endpoint for provider-specific flows
       tags:
         - Client
       parameters:
@@ -664,22 +1015,32 @@ paths:
           required: true
           schema:
             type: string
-            enum: [google, github, discord]
+            enum: [google, github, discord, linkedin, facebook, microsoft]
         - name: code
           in: query
           schema:
             type: string
+          description: Authorization code from OAuth provider
         - name: state
           in: query
+          required: true
           schema:
             type: string
+          description: JWT state with redirect URI
         - name: token
           in: query
           schema:
             type: string
+          description: Direct ID token (for some providers)
       responses:
         '302':
-          description: Redirect with access token
+          description: Redirect to application with access token
+          headers:
+            Location:
+              schema:
+                type: string
+                format: uri
+                description: Redirect URL with access_token, user_id, email, and name query params
 
 components:
   securitySchemes:
@@ -693,6 +1054,36 @@ components:
       name: x-api-key
   
   schemas:
+    OAuthConfig:
+      type: object
+      properties:
+        id:
+          type: string
+        provider:
+          type: string
+          enum: [google, github, discord, linkedin, facebook, microsoft]
+        clientId:
+          type: string
+          nullable: true
+        redirectUri:
+          type: string
+          nullable: true
+        scopes:
+          type: array
+          items:
+            type: string
+          nullable: true
+        useSharedKey:
+          type: boolean
+        enabled:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
     AuthRecord:
       type: object
       properties:
@@ -711,7 +1102,7 @@ components:
         updatedAt:
           type: string
           format: date-time
-    
+
     ProfileRecord:
       type: object
       properties:
@@ -739,7 +1130,7 @@ components:
         updatedAt:
           type: string
           format: date-time
-    
+
     ErrorResponse:
       type: object
       required:

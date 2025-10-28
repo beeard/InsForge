@@ -92,14 +92,11 @@ export function generateUUID(): string {
  * @returns A random string containing only digits (0-9)
  */
 export function generateNumericCode(length: number): string {
-  if (length <= 0) {
-    throw new Error('Length must be greater than 0');
+  // Generate each digit independently
+  let result = '';
+  for (let i = 0; i < length; i++) {
+    result += crypto.randomInt(0, 10).toString();
   }
 
-  // Generate a random number with the specified length
-  const max = Math.pow(10, length);
-  const randomNum = crypto.randomInt(0, max);
-
-  // Pad with leading zeros to ensure exact length
-  return randomNum.toString().padStart(length, '0');
+  return result;
 }

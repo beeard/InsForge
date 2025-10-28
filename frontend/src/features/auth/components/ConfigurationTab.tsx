@@ -47,11 +47,7 @@ export function ConfigurationTab() {
     });
 
     if (shouldDelete) {
-      try {
-        deleteConfig(providerId);
-      } catch (error) {
-        console.error(`Failed to delete ${providerId} OAuth:`, error);
-      }
+      deleteConfig(providerId);
     }
   };
 

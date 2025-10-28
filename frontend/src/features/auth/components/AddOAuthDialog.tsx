@@ -100,7 +100,7 @@ export function AddOAuthDialog({
             onClick={handleConfirm}
             disabled={!hasSelection}
           >
-            Add OAuth
+            Add Provider
           </Button>
         </DialogFooter>
       </DialogContent>

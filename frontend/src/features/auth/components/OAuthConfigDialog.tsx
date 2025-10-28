@@ -310,7 +310,7 @@ export function OAuthConfigDialog({
                     : 'Adding...'
                   : providerConfig
                     ? 'Update'
-                    : 'Add OAuth'}
+                    : 'Add Provider'}
               </Button>
             </DialogFooter>
           </>

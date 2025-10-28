@@ -152,7 +152,7 @@ export class EmailService {
           throw new AppError(
             'Email rate limit exceeded. Free plans are limited to 3000 emails per month.',
             status,
-            ERROR_CODES.INTERNAL_ERROR
+            ERROR_CODES.RATE_LIMITED
           );
         } else if (status === 400) {
           throw new AppError(

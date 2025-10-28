@@ -35,11 +35,11 @@ export const config: AppConfig = {
     logLevel: process.env.LOG_LEVEL || 'info',
   },
   database: {
-    host: process.env.DB_HOST || 'localhost',
-    port: parseInt(process.env.DB_PORT || '5432', 10),
-    username: process.env.DB_USERNAME || 'user',
-    password: process.env.DB_PASSWORD || 'password',
-    databaseName: process.env.DB_NAME || 'insforge',
+    host: process.env.POSTGRES_HOST || 'localhost',
+    port: parseInt(process.env.POSTGRES_PORT || '5432', 10),
+    username: process.env.POSTGRES_USERNAME || 'user',
+    password: process.env.POSTGRES_PASSWORD || 'password',
+    databaseName: process.env.POSTGRES_NAME || 'insforge',
   },
   cloud: {
     storageBucket: process.env.AWS_S3_BUCKET || 'insforge-test-bucket',

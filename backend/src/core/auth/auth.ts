@@ -163,7 +163,7 @@ export class AuthService {
       .get(email);
 
     if (existingUser) {
-      throw new Error('User already exists');
+      throw new AppError('User already exists', 409, ERROR_CODES.ALREADY_EXISTS);
     }
 
     // Get email auth configuration and validate password
@@ -171,7 +171,11 @@ export class AuthService {
     const emailAuthConfig = await authConfigService.getEmailConfig();
 
     if (!validatePassword(password, emailAuthConfig)) {
-      throw new AppError(getPasswordRequirementsMessage(emailAuthConfig), 400, 'INVALID_INPUT');
+      throw new AppError(
+        getPasswordRequirementsMessage(emailAuthConfig),
+        400,
+        ERROR_CODES.INVALID_INPUT
+      );
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -204,7 +208,11 @@ export class AuthService {
 
     // If email verification is required, send verification email and don't provide access token
     if (emailAuthConfig.requireEmailVerification) {
-      await this.sendVerificationEmail(email);
+      try {
+        await this.sendVerificationEmail(email);
+      } catch (error) {
+        logger.warn('Verification email send failed during register', { error });
+      }
 
       return {
         user,
@@ -226,12 +234,12 @@ export class AuthService {
     const dbUser = await this.db.prepare('SELECT * FROM _accounts WHERE email = ?').get(email);
 
     if (!dbUser || !dbUser.password) {
-      throw new Error('Invalid credentials');
+      throw new AppError('Invalid credentials', 401, ERROR_CODES.AUTH_UNAUTHORIZED);
     }
 
     const validPassword = await bcrypt.compare(password, dbUser.password);
     if (!validPassword) {
-      throw new Error('Invalid credentials');
+      throw new AppError('Invalid credentials', 401, ERROR_CODES.AUTH_UNAUTHORIZED);
     }
 
     // Check if email verification is required
@@ -362,7 +370,11 @@ export class AuthService {
     const emailAuthConfig = await authConfigService.getEmailConfig();
 
     if (!validatePassword(newPassword, emailAuthConfig)) {
-      throw new AppError(getPasswordRequirementsMessage(emailAuthConfig), 400, 'INVALID_INPUT');
+      throw new AppError(
+        getPasswordRequirementsMessage(emailAuthConfig),
+        400,
+        ERROR_CODES.INVALID_INPUT
+      );
     }
 
     const dbManager = DatabaseManager.getInstance();
@@ -414,7 +426,7 @@ export class AuthService {
   adminLogin(email: string, password: string): CreateAdminSessionResponse {
     // Simply validate against environment variables
     if (email !== this.adminEmail || password !== this.adminPassword) {
-      throw new Error('Invalid admin credentials');
+      throw new AppError('Invalid admin credentials', 401, ERROR_CODES.AUTH_UNAUTHORIZED);
     }
 
     // Use a fixed admin ID for the system administrator
@@ -466,7 +478,7 @@ export class AuthService {
       };
     } catch (error) {
       logger.error('Admin token verification failed:', error);
-      throw new Error('Invalid admin credentials');
+      throw new AppError('Invalid admin credentials', 401, ERROR_CODES.AUTH_UNAUTHORIZED);
     }
   }
 

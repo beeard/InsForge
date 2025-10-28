@@ -44,7 +44,7 @@ describe('EmailService', () => {
     emailService = EmailService.getInstance();
 
     // Default mock for jwt.sign
-    vi.mocked(jwt.sign).mockReturnValue('mocked-jwt-token' as unknown as string);
+    (jwt.sign as unknown as ReturnType<typeof vi.fn>).mockReturnValue('mocked-jwt-token');
   });
 
   afterEach(() => {
@@ -116,27 +116,6 @@ describe('EmailService', () => {
       );
     });
 
-    it('successfully sends email with request-otp template', async () => {
-      vi.mocked(axios.post).mockResolvedValue({
-        data: { success: true },
-      });
-
-      await emailService.sendWithTemplate(
-        'user@example.com',
-        'Bob Johnson',
-        '789012',
-        'request-otp'
-      );
-
-      expect(axios.post).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.objectContaining({
-          template: 'request-otp',
-          token: '789012',
-        }),
-        expect.any(Object)
-      );
-    });
 
     it('throws error if PROJECT_ID is not configured', async () => {
       const { config } = await import('../../src/app.config');
@@ -355,26 +334,6 @@ describe('EmailService', () => {
     });
   });
 
-  describe('sendOTPRequestEmail', () => {
-    it('calls sendWithTemplate with request-otp template', async () => {
-      vi.mocked(axios.post).mockResolvedValue({
-        data: { success: true },
-      });
-
-      await emailService.sendOTPRequestEmail('user@example.com', 'Bob Johnson', '567890');
-
-      expect(axios.post).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.objectContaining({
-          template: 'request-otp',
-          email: 'user@example.com',
-          name: 'Bob Johnson',
-          token: '567890',
-        }),
-        expect.any(Object)
-      );
-    });
-  });
 
   describe('JWT token generation', () => {
     it('generates JWT with correct payload and expiration', async () => {

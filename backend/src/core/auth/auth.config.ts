@@ -1,4 +1,4 @@
-import { Pool } from 'pg';
+import { Pool, PoolClient } from 'pg';
 import { DatabaseManager } from '@/core/database/manager.js';
 import { AppError } from '@/api/middleware/error.js';
 import { ERROR_CODES } from '@/types/error-constants.js';
@@ -71,9 +71,12 @@ export class AuthConfigService {
   /**
    * Create default authentication configuration
    * This should only be called if the config doesn't exist
+   * @param externalClient - Optional client to use (for transaction support)
    */
-  private async createDefaultConfig(): Promise<EmailAuthConfigSchema> {
-    const client = await this.getPool().connect();
+  private async createDefaultConfig(externalClient?: PoolClient): Promise<EmailAuthConfigSchema> {
+    const client = externalClient || (await this.getPool().connect());
+    const shouldReleaseClient = !externalClient;
+
     try {
       const result = await client.query(
         `INSERT INTO _auth_configs (
@@ -107,7 +110,9 @@ export class AuthConfigService {
         ERROR_CODES.INTERNAL_ERROR
       );
     } finally {
-      client.release();
+      if (shouldReleaseClient) {
+        client.release();
+      }
     }
   }
 
@@ -120,12 +125,12 @@ export class AuthConfigService {
     try {
       await client.query('BEGIN');
 
-      // Ensure config exists
-      const existingResult = await client.query('SELECT id FROM _auth_configs LIMIT 1');
+      // Ensure config exists and lock row to prevent concurrent modifications
+      const existingResult = await client.query('SELECT id FROM _auth_configs LIMIT 1 FOR UPDATE');
 
       if (!existingResult.rows.length) {
-        // Create default config if it doesn't exist
-        await this.createDefaultConfig();
+        // Create default config if it doesn't exist, reusing the same client for transactional consistency
+        await this.createDefaultConfig(client);
       }
 
       // Build update query
