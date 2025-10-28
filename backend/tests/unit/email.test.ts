@@ -116,7 +116,6 @@ describe('EmailService', () => {
       );
     });
 
-
     it('throws error if PROJECT_ID is not configured', async () => {
       const { config } = await import('../../src/app.config');
       config.cloud.projectId = 'local';
@@ -333,7 +332,6 @@ describe('EmailService', () => {
       );
     });
   });
-
 
   describe('JWT token generation', () => {
     it('generates JWT with correct payload and expiration', async () => {
