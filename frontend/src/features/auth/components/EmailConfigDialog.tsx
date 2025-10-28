@@ -17,6 +17,7 @@ import {
   type UpdateEmailAuthConfigRequest,
 } from '@insforge/shared-schemas';
 import { useEmailConfig } from '@/features/auth/hooks/useEmailConfig';
+import { isInsForgeCloudProject } from '@/lib/utils/utils';
 
 interface EmailConfigDialogProps {
   isOpen: boolean;
@@ -88,31 +89,33 @@ export function EmailConfigDialog({ isOpen, onClose, onSuccess }: EmailConfigDia
         ) : (
           <>
             <form onSubmit={(e) => e.preventDefault()} className="flex flex-col">
-              <div className="space-y-6 p-6">
-                {/* Email Verification Toggle */}
-                <div className="flex items-center justify-between">
-                  <div className="flex flex-col gap-1">
-                    <span className="text-sm font-medium text-gray-900 dark:text-white">
-                      Require Email Verification
-                    </span>
-                    <span className="text-xs text-zinc-500 dark:text-neutral-400">
-                      Users must verify their email address before they can sign in
-                    </span>
+              {isInsForgeCloudProject() && (
+                <div className="space-y-6 p-6">
+                  {/* Email Verification Toggle */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-sm font-medium text-gray-900 dark:text-white">
+                        Require Email Verification
+                      </span>
+                      <span className="text-xs text-zinc-500 dark:text-neutral-400">
+                        Users must verify their email address before they can sign in
+                      </span>
+                    </div>
+                    <Controller
+                      name="requireEmailVerification"
+                      control={form.control}
+                      render={({ field }) => (
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={(value) => {
+                            field.onChange(value);
+                          }}
+                        />
+                      )}
+                    />
                   </div>
-                  <Controller
-                    name="requireEmailVerification"
-                    control={form.control}
-                    render={({ field }) => (
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={(value) => {
-                          field.onChange(value);
-                        }}
-                      />
-                    )}
-                  />
                 </div>
-              </div>
+              )}
 
               {/* Password Requirements Section */}
               <div className="space-y-6 p-6 border-t border-zinc-200 dark:border-neutral-700">

@@ -169,12 +169,7 @@ export class AuthService {
     const emailAuthConfig = await authConfigService.getEmailConfig();
 
     if (!validatePassword(password, emailAuthConfig)) {
-      throw new AppError(
-        getPasswordRequirementsMessage(emailAuthConfig),
-        400,
-        'INVALID_INPUT',
-        'Password does not meet the requirements'
-      );
+      throw new AppError(getPasswordRequirementsMessage(emailAuthConfig), 400, 'INVALID_INPUT');
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
