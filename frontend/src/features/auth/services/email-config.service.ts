@@ -1,8 +1,5 @@
 import { apiClient } from '@/lib/api/client';
-import {
-  EmailAuthConfigSchema,
-  UpdateEmailAuthConfigRequest,
-} from '@insforge/shared-schemas';
+import { EmailAuthConfigSchema, UpdateEmailAuthConfigRequest } from '@insforge/shared-schemas';
 
 export class EmailConfigService {
   // Get email authentication configuration

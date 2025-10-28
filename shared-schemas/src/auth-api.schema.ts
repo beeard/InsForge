@@ -67,28 +67,29 @@ export const deleteUsersRequestSchema = z.object({
 /**
  * POST /api/auth/request-email-verification - Request email verification
  */
-export const requestEmailVerificationSchema = z.object({
+export const resendVerificationEmailRequestSchema = z.object({
   email: emailSchema,
-});
-
-/**
- * POST /api/auth/request-one-time-password - Request one-time password
- */
-export const requestOneTimePasswordSchema = z.object({
-  email: emailSchema,
-});
-
-/**
- * POST /api/auth/verify-one-time-password - Verify one-time password
- */
-export const verifyOneTimePasswordRequestSchema = z.object({
-  email: emailSchema,
-  otp: z.string().min(4).max(8),
 });
 
 // /api/auth/verify-email - Verify email verification
 export const verifyEmailRequestSchema = z.object({
   email: emailSchema,
+  verificationCode: z.string().min(4).max(8),
+});
+
+/**
+ * POST /api/auth/send-reset-password-email - Send password reset email
+ */
+export const sendResetPasswordEmailRequestSchema = z.object({
+  email: emailSchema,
+});
+
+/**
+ * POST /api/auth/reset-password - Reset password with verification code
+ */
+export const resetPasswordRequestSchema = z.object({
+  email: emailSchema,
+  newPassword: passwordSchema,
   verificationCode: z.string().min(4).max(8),
 });
 
@@ -237,6 +238,12 @@ export type DeleteUsersRequest = z.infer<typeof deleteUsersRequestSchema>;
 export type CreateOAuthConfigRequest = z.infer<typeof createOAuthConfigRequestSchema>;
 export type UpdateOAuthConfigRequest = z.infer<typeof updateOAuthConfigRequestSchema>;
 export type UpdateEmailAuthConfigRequest = z.infer<typeof updateEmailAuthConfigRequestSchema>;
+export type ResendVerificationEmailRequestSchema = z.infer<
+  typeof resendVerificationEmailRequestSchema
+>;
+export type VerifyEmailRequestSchema = z.infer<typeof verifyEmailRequestSchema>;
+export type SendResetPasswordEmailRequest = z.infer<typeof sendResetPasswordEmailRequestSchema>;
+export type ResetPasswordRequest = z.infer<typeof resetPasswordRequestSchema>;
 
 // Response types for type-safe responses
 export type CreateUserResponse = z.infer<typeof createUserResponseSchema>;
