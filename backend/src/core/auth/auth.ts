@@ -219,6 +219,19 @@ export class AuthService {
       throw new Error('Invalid credentials');
     }
 
+    // Check if email verification is required
+    const authConfigService = AuthConfigService.getInstance();
+    const emailAuthConfig = await authConfigService.getEmailConfig();
+
+    if (emailAuthConfig.requireEmailVerification && !dbUser.email_verified) {
+      throw new AppError(
+        'Email verification required',
+        403,
+        ERROR_CODES.FORBIDDEN,
+        'Please verify your email address before logging in'
+      );
+    }
+
     const user = this.dbUserToApiUser(dbUser);
     const accessToken = this.generateToken({
       sub: dbUser.id,
