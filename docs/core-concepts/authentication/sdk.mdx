@@ -119,7 +119,7 @@ Start OAuth authentication flow with Google or GitHub.
 
 - `provider` ('google' | 'github', required) - OAuth provider
 - `redirectTo` (string, optional) - URL to redirect after authentication
-- `skipBrowserRedirect` (boolean, optional) - Return URL instead of auto-redirecting
+- `skipBrowserRedirect` (boolean, optional) - If true, returns OAuth URL without auto-redirecting (for mobile apps)
 
 ### Returns
 
@@ -137,14 +137,20 @@ After OAuth redirect, SDK automatically detects callback parameters and saves se
 ### Example
 
 ```javascript
-const { data, error } = await insforge.auth.signInWithOAuth({
+// Default: auto-redirect
+await insforge.auth.signInWithOAuth({
   provider: 'google',
   redirectTo: 'http://localhost:3000/dashboard'
 })
+// Browser immediately redirects to Google
 
-// User is redirected to Google OAuth
-// After authentication, user returns to redirectTo URL
-// SDK automatically handles the callback and saves session
+// skipBrowserRedirect: get URL for manual handling
+const { data } = await insforge.auth.signInWithOAuth({
+  provider: 'google',
+  skipBrowserRedirect: true
+})
+
+window.location.href = data.url // Redirect when ready
 ```
 
 ### Output
