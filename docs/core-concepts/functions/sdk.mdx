@@ -1,6 +1,6 @@
 ---
 title: Functions SDK Reference
-description: Invoke edge functions with the InsForge SDK
+description: Invoke serverless functions with the InsForge SDK
 ---
 
 import Installation from '/snippets/sdk-installation.mdx';
@@ -9,7 +9,7 @@ import Installation from '/snippets/sdk-installation.mdx';
 
 ## invoke()
 
-Invoke an edge function by slug.
+Invoke a serverless function by slug.
 
 ### Parameters
 
@@ -98,7 +98,7 @@ const { data, error } = await insforge.functions.invoke('api-endpoint', {
 }
 ```
 
-## Complete Edge Function Examples
+## Complete Serverless Function Examples
 
 ### Example 1: Public Function (No Authentication Required)
 
@@ -138,7 +138,7 @@ module.exports = async function(request) {
 ### Example 2: Authenticated Function (Access User Data)
 
 ```javascript
-// Use edgeFunctionToken to access authenticated user's data
+// Use functionToken to access authenticated user's data
 // No import needed - createClient is injected by the worker template
 module.exports = async function(request) {
   const corsHeaders = {

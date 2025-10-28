@@ -7,7 +7,7 @@ Backend-as-a-service (BaaS) platform providing:
 - **Authentication**: Email/password + OAuth (Google, GitHub)
 - **Storage**: File upload/download
 - **AI**: Chat completions and image generation (OpenAI-compatible)
-- **Edge Functions**: Serverless function deployment
+- **Functions**: Serverless function deployment
 
 **Key Concept**: InsForge replaces your traditional backend - implement business logic by calling database operations directly instead of building API endpoints.
 
@@ -43,7 +43,7 @@ Available documentation types:
 - `"db-sdk"` - Database operations with SDK
 - `"auth-sdk"` - Authentication methods
 - `"storage-sdk"` - File storage operations
-- `"functions-sdk"` - Edge functions invocation
+- `"functions-sdk"` - Serverless functions invocation
 - `"ai-integration-sdk"` - AI chat and image generation
 
 ## When to Use SDK vs MCP Tools
@@ -53,13 +53,13 @@ Available documentation types:
 - Database CRUD (select, insert, update, delete)
 - Storage operations (upload, download files)
 - AI operations (chat, image generation)
-- Edge function invocation
+- Serverless function invocation
 
 ### Use MCP Tools for Infrastructure:
 - Backend setup and metadata (`get-backend-metadata`)
 - Database schema management (`run-raw-sql`, `get-table-schema`)
 - Storage bucket creation (`create-bucket`, `list-buckets`, `delete-bucket`)
-- Edge function deployment (`create-function`, `update-function`, `delete-function`)
+- Serverless function deployment (`create-function`, `update-function`, `delete-function`)
 
 ## Quick Start
 
@@ -72,6 +72,6 @@ Available documentation types:
 
 - SDK returns `{data, error}` structure for all operations
 - Database inserts require array format: `[{...}]`
-- Edge functions have single endpoint (no subpaths)
+- Serverless functions have single endpoint (no subpaths)
 - Storage: Upload files to buckets, store URLs in database
 - AI operations are OpenAI-compatible

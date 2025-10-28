@@ -7,62 +7,6 @@ import Installation from '/snippets/sdk-installation.mdx';
 
 <Installation />
 
-## select()
-
-Query records from a table or view.
-
-### Parameters
-
-- `columns` (string, optional) - Comma-separated column names. Use `*` for all columns
-- `options.count` ('exact' | 'planned' | 'estimated', optional) - Include total row count
-- `options.head` (boolean, optional) - Return only count, no data
-
-### Returns
-
-```typescript
-{
-  data: Array<object> | null,
-  error: Error | null,
-  count?: number
-}
-```
-
-### Examples
-
-<CodeGroup>
-```javascript Get all
-const { data, error } = await insforge.database
-  .from('users')
-  .select()
-```
-
-```javascript Specific columns
-const { data, error } = await insforge.database
-  .from('users')
-  .select('id, name, email')
-```
-
-```javascript With relationships
-const { data, error } = await insforge.database
-  .from('posts')
-  .select('*, users(nickname, avatar_url)')
-```
-</CodeGroup>
-
-### Output Example
-
-```json
-{
-  "data": [
-    { "id": "123", "name": "John", "email": "john@example.com" },
-    { "id": "456", "name": "Jane", "email": "jane@example.com" }
-  ],
-  "error": null
-}
-```
-
----
-
 ## insert()
 
 Insert new records into a table.
@@ -221,6 +165,62 @@ const { error } = await insforge.database
 ```json
 {
   "data": null,
+  "error": null
+}
+```
+
+---
+
+## select()
+
+Query records from a table or view.
+
+### Parameters
+
+- `columns` (string, optional) - Comma-separated column names. Use `*` for all columns
+- `options.count` ('exact' | 'planned' | 'estimated', optional) - Include total row count
+- `options.head` (boolean, optional) - Return only count, no data
+
+### Returns
+
+```typescript
+{
+  data: Array<object> | null,
+  error: Error | null,
+  count?: number
+}
+```
+
+### Examples
+
+<CodeGroup>
+```javascript Get all
+const { data, error } = await insforge.database
+  .from('users')
+  .select()
+```
+
+```javascript Specific columns
+const { data, error } = await insforge.database
+  .from('users')
+  .select('id, name, email')
+```
+
+```javascript With relationships
+const { data, error } = await insforge.database
+  .from('posts')
+  .select('*, users(nickname, avatar_url)')
+```
+</CodeGroup>
+
+### Output Example
+
+```json
+{
+  "data": [
+    { "id": "123", "name": "John", "email": "john@example.com" },
+    { "id": "456", "name": "Jane", "email": "jane@example.com" }
+  ],
   "error": null
 }
 ```
