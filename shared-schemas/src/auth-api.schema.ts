@@ -102,7 +102,8 @@ export const resetPasswordRequestSchema = z.object({
  */
 export const createUserResponseSchema = z.object({
   user: userSchema,
-  accessToken: z.string(),
+  accessToken: z.string().nullable(),
+  requiresEmailVerification: z.boolean().optional(),
 });
 
 /**
