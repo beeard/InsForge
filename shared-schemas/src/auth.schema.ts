@@ -13,10 +13,7 @@ export const userIdSchema = z.string().uuid('Invalid user ID format');
 
 export const emailSchema = z.string().email('Invalid email format').toLowerCase().trim();
 
-export const passwordSchema = z
-  .string()
-  .min(6, 'Password must be at least 6 characters')
-  .max(32, 'Password must be less than 32 characters');
+export const passwordSchema = z.string();
 
 export const nameSchema = z
   .string()

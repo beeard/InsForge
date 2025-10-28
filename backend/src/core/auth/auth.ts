@@ -20,6 +20,9 @@ import type {
   OAuthProvidersSchema,
 } from '@insforge/shared-schemas';
 import { OAuthConfigService } from './oauth.config';
+import { AuthConfigService } from './auth.config';
+import { validatePassword } from '@/utils/validations';
+import { getPasswordRequirementsMessage } from '@/utils/helpers';
 import {
   FacebookUserInfo,
   GitHubEmailInfo,
@@ -159,6 +162,19 @@ export class AuthService {
 
     if (existingUser) {
       throw new Error('User already exists');
+    }
+
+    // Get email auth configuration and validate password
+    const authConfigService = AuthConfigService.getInstance();
+    const emailAuthConfig = await authConfigService.getEmailConfig();
+
+    if (!validatePassword(password, emailAuthConfig)) {
+      throw new AppError(
+        getPasswordRequirementsMessage(emailAuthConfig),
+        400,
+        'INVALID_INPUT',
+        'Password does not meet the requirements'
+      );
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);

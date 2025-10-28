@@ -1,4 +1,33 @@
-import { ColumnType } from '@insforge/shared-schemas';
+import { ColumnType, type EmailAuthConfigSchema } from '@insforge/shared-schemas';
+
+/**
+ * Generates a user-friendly error message listing all password requirements
+ * @param config - Email authentication configuration with password requirements
+ * @returns A formatted message listing all enabled password requirements
+ */
+export function getPasswordRequirementsMessage(config: EmailAuthConfigSchema): string {
+  const requirements: string[] = [];
+
+  requirements.push(`at least ${config.passwordMinLength} characters long`);
+
+  if (config.requireNumber) {
+    requirements.push('at least one number');
+  }
+
+  if (config.requireLowercase) {
+    requirements.push('at least one lowercase letter');
+  }
+
+  if (config.requireUppercase) {
+    requirements.push('at least one uppercase letter');
+  }
+
+  if (config.requireSpecialChar) {
+    requirements.push('at least one special character');
+  }
+
+  return `Password must contain ${requirements.join(', ')}`;
+}
 
 export const convertSqlTypeToColumnType = (sqlType: string): ColumnType | string => {
   switch (sqlType.toLowerCase()) {
