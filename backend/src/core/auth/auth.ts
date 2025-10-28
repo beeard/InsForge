@@ -148,7 +148,7 @@ export class AuthService {
         role: decoded.role || 'authenticated',
       };
     } catch {
-      throw new Error('Invalid token');
+      throw new AppError('Invalid token', 401, ERROR_CODES.AUTH_UNAUTHORIZED);
     }
   }
 
@@ -158,14 +158,6 @@ export class AuthService {
    * Otherwise, returns user with access token for immediate login
    */
   async register(email: string, password: string, name?: string): Promise<CreateUserResponse> {
-    const existingUser = await this.db
-      .prepare('SELECT id FROM _accounts WHERE email = ?')
-      .get(email);
-
-    if (existingUser) {
-      throw new AppError('User already exists', 409, ERROR_CODES.ALREADY_EXISTS);
-    }
-
     // Get email auth configuration and validate password
     const authConfigService = AuthConfigService.getInstance();
     const emailAuthConfig = await authConfigService.getEmailConfig();
@@ -180,24 +172,30 @@ export class AuthService {
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const userId = crypto.randomUUID();
+    await this.db.exec('BEGIN');
+    try {
+      await this.db
+        .prepare(
+          `INSERT INTO _accounts (id, email, password, name, email_verified, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, NOW(), NOW())`
+        )
+        .run(userId, email, hashedPassword, name || null, false);
 
-    await this.db
-      .prepare(
-        `
-      INSERT INTO _accounts (id, email, password, name, email_verified, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, NOW(), NOW())
-    `
-      )
-      .run(userId, email, hashedPassword, name || null, false);
-
-    await this.db
-      .prepare(
-        `
-      INSERT INTO users (id, nickname, created_at, updated_at)
-      VALUES (?, ?, NOW(), NOW())
-    `
-      )
-      .run(userId, name || null);
+      await this.db
+        .prepare(
+          `INSERT INTO users (id, nickname, created_at, updated_at)
+           VALUES (?, ?, NOW(), NOW())`
+        )
+        .run(userId, name || null);
+      await this.db.exec('COMMIT');
+    } catch (e) {
+      await this.db.exec('ROLLBACK');
+      // Postgres unique_violation
+      if (e && typeof e === 'object' && 'code' in e && e.code === '23505') {
+        throw new AppError('User already exists', 409, ERROR_CODES.ALREADY_EXISTS);
+      }
+      throw e;
+    }
 
     const dbUser = await this.db
       .prepare(
@@ -409,9 +407,11 @@ export class AuthService {
         throw new Error('User not found');
       }
 
+      const userId = result.rows[0].id;
+
       await client.query('COMMIT');
 
-      logger.info('Password reset successfully', { email });
+      logger.info('Password reset successfully', { userId });
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;

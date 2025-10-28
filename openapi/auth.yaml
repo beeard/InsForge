@@ -23,21 +23,20 @@ paths:
                 properties:
                   id:
                     type: string
-                  enabled:
-                    type: boolean
+                    format: uuid
                   requireEmailVerification:
-                    type: boolean
-                  allowPasswordReset:
                     type: boolean
                   passwordMinLength:
                     type: integer
-                  passwordRequireUppercase:
+                    minimum: 4
+                    maximum: 128
+                  requireNumber:
                     type: boolean
-                  passwordRequireLowercase:
+                  requireLowercase:
                     type: boolean
-                  passwordRequireNumbers:
+                  requireUppercase:
                     type: boolean
-                  passwordRequireSpecialChars:
+                  requireSpecialChar:
                     type: boolean
                   createdAt:
                     type: string
@@ -64,23 +63,19 @@ paths:
             schema:
               type: object
               properties:
-                enabled:
-                  type: boolean
                 requireEmailVerification:
-                  type: boolean
-                allowPasswordReset:
                   type: boolean
                 passwordMinLength:
                   type: integer
-                  minimum: 6
+                  minimum: 4
                   maximum: 128
-                passwordRequireUppercase:
+                requireNumber:
                   type: boolean
-                passwordRequireLowercase:
+                requireLowercase:
                   type: boolean
-                passwordRequireNumbers:
+                requireUppercase:
                   type: boolean
-                passwordRequireSpecialChars:
+                requireSpecialChar:
                   type: boolean
       responses:
         '200':
@@ -92,21 +87,20 @@ paths:
                 properties:
                   id:
                     type: string
-                  enabled:
-                    type: boolean
+                    format: uuid
                   requireEmailVerification:
-                    type: boolean
-                  allowPasswordReset:
                     type: boolean
                   passwordMinLength:
                     type: integer
-                  passwordRequireUppercase:
+                    minimum: 4
+                    maximum: 128
+                  requireNumber:
                     type: boolean
-                  passwordRequireLowercase:
+                  requireLowercase:
                     type: boolean
-                  passwordRequireNumbers:
+                  requireUppercase:
                     type: boolean
-                  passwordRequireSpecialChars:
+                  requireSpecialChar:
                     type: boolean
                   createdAt:
                     type: string
@@ -143,13 +137,13 @@ paths:
                   example: user@example.com
                 password:
                   type: string
-                  minLength: 8
+                  description: Password meeting configured requirements (check /api/auth/email/config for current requirements)
                   example: securepassword123
                 name:
                   type: string
                   example: John Doe
       responses:
-        '201':
+        '200':
           description: User created successfully
           content:
             application/json:
@@ -157,23 +151,7 @@ paths:
                 type: object
                 properties:
                   user:
-                    type: object
-                    properties:
-                      id:
-                        type: string
-                        format: uuid
-                      email:
-                        type: string
-                      name:
-                        type: string
-                      emailVerified:
-                        type: boolean
-                      createdAt:
-                        type: string
-                        format: date-time
-                      updatedAt:
-                        type: string
-                        format: date-time
+                    $ref: '#/components/schemas/UserResponse'
                   accessToken:
                     type: string
                     nullable: true
@@ -224,19 +202,7 @@ paths:
                   data:
                     type: array
                     items:
-                      type: object
-                      properties:
-                        id:
-                          type: string
-                        email:
-                          type: string
-                        name:
-                          type: string
-                        role:
-                          type: string
-                        created_at:
-                          type: string
-                          format: date-time
+                      $ref: '#/components/schemas/UserResponse'
                   pagination:
                     type: object
                     properties:
@@ -310,33 +276,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  id:
-                    type: string
-                    format: uuid
-                  email:
-                    type: string
-                  name:
-                    type: string
-                  email_verified:
-                    type: boolean
-                  created_at:
-                    type: string
-                    format: date-time
-                  updated_at:
-                    type: string
-                    format: date-time
-                  identities:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        provider:
-                          type: string
-                  provider_type:
-                    type: string
-                    enum: [Email, Social]
+                $ref: '#/components/schemas/UserResponse'
         '400':
           description: Invalid user ID format
         '401':
@@ -376,23 +316,7 @@ paths:
                 type: object
                 properties:
                   user:
-                    type: object
-                    properties:
-                      id:
-                        type: string
-                        format: uuid
-                      email:
-                        type: string
-                      name:
-                        type: string
-                      emailVerified:
-                        type: boolean
-                      createdAt:
-                        type: string
-                        format: date-time
-                      updatedAt:
-                        type: string
-                        format: date-time
+                    $ref: '#/components/schemas/UserResponse'
                   accessToken:
                     type: string
         '401':
@@ -403,7 +327,7 @@ paths:
   /api/auth/sessions/current:
     get:
       summary: Get current user
-      description: Returns the currently authenticated user
+      description: Returns the currently authenticated user's basic info from JWT token
       tags:
         - Client
       security:
@@ -421,12 +345,13 @@ paths:
                     properties:
                       id:
                         type: string
+                        format: uuid
                       email:
                         type: string
-                      name:
-                        type: string
+                        format: email
                       role:
                         type: string
+                        enum: [authenticated, project_admin]
         '401':
           description: Unauthorized
 
@@ -459,20 +384,10 @@ paths:
               schema:
                 type: object
                 properties:
+                  user:
+                    $ref: '#/components/schemas/UserResponse'
                   accessToken:
                     type: string
-                  user:
-                    type: object
-                    properties:
-                      id:
-                        type: string
-                      email:
-                        type: string
-                      name:
-                        type: string
-                      role:
-                        type: string
-                        enum: [admin]
         '401':
           description: Invalid credentials
         '403':
@@ -505,28 +420,11 @@ paths:
               schema:
                 type: object
                 properties:
+                  user:
+                    $ref: '#/components/schemas/UserResponse'
                   accessToken:
                     type: string
                     description: Internal JWT for admin authentication
-                  user:
-                    type: object
-                    properties:
-                      id:
-                        type: string
-                        format: uuid
-                      email:
-                        type: string
-                      name:
-                        type: string
-                        example: Administrator
-                      emailVerified:
-                        type: boolean
-                      createdAt:
-                        type: string
-                        format: date-time
-                      updatedAt:
-                        type: string
-                        format: date-time
         '400':
           description: Invalid authorization code or JWT verification failed
           content:
@@ -632,23 +530,7 @@ paths:
                 type: object
                 properties:
                   user:
-                    type: object
-                    properties:
-                      id:
-                        type: string
-                        format: uuid
-                      email:
-                        type: string
-                      name:
-                        type: string
-                      emailVerified:
-                        type: boolean
-                      createdAt:
-                        type: string
-                        format: date-time
-                      updatedAt:
-                        type: string
-                        format: date-time
+                    $ref: '#/components/schemas/UserResponse'
                   accessToken:
                     type: string
                     description: JWT authentication token
@@ -715,7 +597,7 @@ paths:
                   example: user@example.com
                 newPassword:
                   type: string
-                  minLength: 8
+                  description: New password meeting configured requirements
                   example: newSecurePassword123
                 verificationCode:
                   type: string
@@ -795,8 +677,6 @@ paths:
                   items:
                     type: string
                 useSharedKey:
-                  type: boolean
-                enabled:
                   type: boolean
       responses:
         '200':
@@ -878,8 +758,6 @@ paths:
                   items:
                     type: string
                 useSharedKey:
-                  type: boolean
-                enabled:
                   type: boolean
       responses:
         '200':
@@ -1052,13 +930,43 @@ components:
       type: apiKey
       in: header
       name: x-api-key
-  
+
   schemas:
+    UserResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        emailVerified:
+          type: boolean
+        identities:
+          type: array
+          items:
+            type: object
+            properties:
+              provider:
+                type: string
+        providerType:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
     OAuthConfig:
       type: object
       properties:
         id:
           type: string
+          format: uuid
         provider:
           type: string
           enum: [google, github, discord, linkedin, facebook, microsoft]
@@ -1074,8 +982,6 @@ components:
             type: string
           nullable: true
         useSharedKey:
-          type: boolean
-        enabled:
           type: boolean
         createdAt:
           type: string

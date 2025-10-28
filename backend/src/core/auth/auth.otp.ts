@@ -29,7 +29,7 @@ export interface CreateOTPResult {
 export interface VerifyOTPResult {
   success: boolean;
   email: string;
-  purpose: string;
+  purpose: EmailOTPPurpose;
 }
 
 /**
@@ -137,10 +137,12 @@ export class AuthOTPService {
   ): Promise<VerifyOTPResult> {
     const client = externalClient || (await this.getPool().connect());
     const shouldManageTransaction = !externalClient;
+    let transactionActive = false;
 
     try {
       if (shouldManageTransaction) {
         await client.query('BEGIN');
+        transactionActive = true;
       }
 
       // Fetch the OTP record with row lock to serialize verification attempts
@@ -178,6 +180,7 @@ export class AuthOTPService {
             [otpRecord.id]
           );
           await client.query('COMMIT');
+          transactionActive = false;
         } else {
           const tmp = await this.getPool().connect();
           try {
@@ -202,14 +205,16 @@ export class AuthOTPService {
         [otpRecord.id]
       );
       if (consume.rowCount !== 1) {
-        if (shouldManageTransaction) {
+        if (shouldManageTransaction && transactionActive) {
           await client.query('ROLLBACK');
+          transactionActive = false;
         }
         throw new AppError('Invalid or expired verification code', 400, ERROR_CODES.INVALID_INPUT);
       }
 
       if (shouldManageTransaction) {
         await client.query('COMMIT');
+        transactionActive = false;
       }
 
       logger.info('Email OTP verified successfully', { purpose });
@@ -220,7 +225,7 @@ export class AuthOTPService {
         purpose: otpRecord.purpose,
       };
     } catch (error) {
-      if (shouldManageTransaction) {
+      if (shouldManageTransaction && transactionActive) {
         await client.query('ROLLBACK');
       }
 
