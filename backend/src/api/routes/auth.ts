@@ -459,13 +459,9 @@ router.post(
 
       const { email } = validationResult.data;
 
-      // Attempt to send verification email, but don't expose whether user exists
-      try {
-        await authService.sendVerificationEmailWithCode(email);
-      } catch {
-        // Silently catch errors to prevent user enumeration
-        // Rate limiting still applies to prevent abuse
-      }
+      // Note: User enumeration is prevented at service layer
+      // Service returns gracefully (no error) if user not found
+      await authService.sendVerificationEmailWithCode(email);
 
       // Always return 202 Accepted with generic message
       res.status(202).json({
@@ -496,13 +492,9 @@ router.post(
 
       const { email } = validationResult.data;
 
-      // Attempt to send magic link, but don't expose whether user exists
-      try {
-        await authService.sendVerificationEmailWithLink(email);
-      } catch {
-        // Silently catch errors to prevent user enumeration
-        // Rate limiting still applies to prevent abuse
-      }
+      // Note: User enumeration is prevented at service layer
+      // Service returns gracefully (no error) if user not found
+      await authService.sendVerificationEmailWithLink(email);
 
       // Always return 202 Accepted with generic message
       res.status(202).json({
@@ -569,13 +561,9 @@ router.post(
 
       const { email } = validationResult.data;
 
-      // Attempt to send password reset email, but don't expose whether user exists
-      try {
-        await authService.sendResetPasswordEmailWithCode(email);
-      } catch {
-        // Silently catch errors to prevent user enumeration
-        // Rate limiting still applies to prevent abuse
-      }
+      // Note: User enumeration is prevented at service layer
+      // Service returns gracefully (no error) if user not found
+      await authService.sendResetPasswordEmailWithCode(email);
 
       // Always return 202 Accepted with generic message
       res.status(202).json({
@@ -606,13 +594,9 @@ router.post(
 
       const { email } = validationResult.data;
 
-      // Attempt to send password reset magic link, but don't expose whether user exists
-      try {
-        await authService.sendResetPasswordEmailWithLink(email);
-      } catch {
-        // Silently catch errors to prevent user enumeration
-        // Rate limiting still applies to prevent abuse
-      }
+      // Note: User enumeration is prevented at service layer
+      // Service returns gracefully (no error) if user not found
+      await authService.sendResetPasswordEmailWithLink(email);
 
       // Always return 202 Accepted with generic message
       res.status(202).json({

@@ -270,7 +270,9 @@ export class AuthService {
     // Check if user exists
     const dbUser = await this.db.prepare('SELECT * FROM _accounts WHERE email = ?').get(email);
     if (!dbUser) {
-      throw new Error('User not found');
+      // Silently succeed to prevent user enumeration
+      logger.info('Verification email requested for non-existent user', { email });
+      return;
     }
 
     // Create numeric OTP code using the OTP service
@@ -297,7 +299,9 @@ export class AuthService {
     // Check if user exists
     const dbUser = await this.db.prepare('SELECT * FROM _accounts WHERE email = ?').get(email);
     if (!dbUser) {
-      throw new Error('User not found');
+      // Silently succeed to prevent user enumeration
+      logger.info('Verification email requested for non-existent user', { email });
+      return;
     }
 
     // Create long cryptographic token for magic link
@@ -435,7 +439,9 @@ export class AuthService {
     // Check if user exists
     const dbUser = await this.db.prepare('SELECT * FROM _accounts WHERE email = ?').get(email);
     if (!dbUser) {
-      throw new Error('User not found');
+      // Silently succeed to prevent user enumeration
+      logger.info('Password reset requested for non-existent user', { email });
+      return;
     }
 
     // Create numeric OTP code using the OTP service
@@ -462,7 +468,9 @@ export class AuthService {
     // Check if user exists
     const dbUser = await this.db.prepare('SELECT * FROM _accounts WHERE email = ?').get(email);
     if (!dbUser) {
-      throw new Error('User not found');
+      // Silently succeed to prevent user enumeration
+      logger.info('Password reset requested for non-existent user', { email });
+      return;
     }
 
     // Create long cryptographic token for magic link
