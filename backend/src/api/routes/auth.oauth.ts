@@ -430,9 +430,9 @@ router.get('/shared/callback/:state', async (req: Request, res: Response, next: 
 
     const params = new URLSearchParams();
     params.set('access_token', result?.accessToken ?? '');
-    params.set('user_id', result?.user.id ?? '');
-    params.set('email', result?.user.email ?? '');
-    params.set('name', result?.user.name ?? '');
+    params.set('user_id', result?.user?.id ?? '');
+    params.set('email', result?.user?.email ?? '');
+    params.set('name', result?.user?.name ?? '');
 
     res.redirect(`${redirectUri}?${params.toString()}`);
   } catch (error) {
@@ -493,9 +493,9 @@ router.get('/:provider/callback', async (req: Request, res: Response, next: Next
       // Construct redirect URL with query parameters
       const params = new URLSearchParams();
       params.set('access_token', result?.accessToken ?? '');
-      params.set('user_id', result?.user.id ?? '');
-      params.set('email', result?.user.email ?? '');
-      params.set('name', result?.user.name ?? '');
+      params.set('user_id', result?.user?.id ?? '');
+      params.set('email', result?.user?.email ?? '');
+      params.set('name', result?.user?.name ?? '');
 
       const finalRedirectUri = `${redirectUri}?${params.toString()}`;
 
