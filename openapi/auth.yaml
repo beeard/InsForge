@@ -461,10 +461,10 @@ paths:
         '403':
           description: Forbidden - admin access required
 
-  /api/auth/resend-verification-email:
+  /api/auth/email/send-verification-code:
     post:
-      summary: Resend email verification
-      description: Resend email verification code to user's email address
+      summary: Send email verification code
+      description: Send a numeric 6-digit verification code to user's email address
       tags:
         - Client
       requestBody:
@@ -482,7 +482,7 @@ paths:
                   example: user@example.com
       responses:
         '202':
-          description: Verification email sent (if email exists)
+          description: Verification code sent (if email exists)
           content:
             application/json:
               schema:
@@ -496,10 +496,10 @@ paths:
         '400':
           description: Invalid request
 
-  /api/auth/verify-email:
+  /api/auth/email/send-verification-link:
     post:
-      summary: Verify email with code
-      description: Verify email address using the code sent via email and create session
+      summary: Send email verification link
+      description: Send a magic link for email verification to user's email address
       tags:
         - Client
       requestBody:
@@ -510,16 +510,55 @@ paths:
               type: object
               required:
                 - email
-                - verificationCode
               properties:
                 email:
                   type: string
                   format: email
                   example: user@example.com
-                verificationCode:
+      responses:
+        '202':
+          description: Verification link sent (if email exists)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                    example: "If your email is registered, we have sent you a verification link. Please check your inbox."
+        '400':
+          description: Invalid request
+
+  /api/auth/verify-email:
+    post:
+      summary: Verify email with code or link
+      description: |
+        Verify email address using either:
+        - Numeric code verification: Provide both `email` and `otp` (6-digit code)
+        - Magic link verification: Provide only `otp` (64-character token from link)
+
+        Successfully verified users will receive a session token.
+      tags:
+        - Client
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - otp
+              properties:
+                email:
                   type: string
-                  minLength: 4
-                  maxLength: 8
+                  format: email
+                  description: Required for numeric code verification, omit for magic link verification
+                  example: user@example.com
+                otp:
+                  type: string
+                  description: Either a 6-digit numeric code or a 64-character hex token from magic link
                   example: "123456"
       responses:
         '200':
@@ -535,14 +574,14 @@ paths:
                     type: string
                     description: JWT authentication token
         '400':
-          description: Invalid verification code
+          description: Invalid verification code or token
         '401':
-          description: Verification code expired or invalid
+          description: Verification code/token expired or invalid
 
-  /api/auth/send-reset-password-email:
+  /api/auth/email/send-reset-password-code:
     post:
-      summary: Send password reset email
-      description: Send password reset code to user's email address
+      summary: Send password reset code
+      description: Send a numeric 6-digit password reset code to user's email address
       tags:
         - Client
       requestBody:
@@ -560,7 +599,7 @@ paths:
                   example: user@example.com
       responses:
         '202':
-          description: Password reset email sent (if email exists)
+          description: Password reset code sent (if email exists)
           content:
             application/json:
               schema:
@@ -574,10 +613,10 @@ paths:
         '400':
           description: Invalid request
 
-  /api/auth/reset-password:
+  /api/auth/email/send-reset-password-link:
     post:
-      summary: Reset password with verification code
-      description: Reset user password using verification code sent via email
+      summary: Send password reset link
+      description: Send a magic link for password reset to user's email address
       tags:
         - Client
       requestBody:
@@ -588,21 +627,58 @@ paths:
               type: object
               required:
                 - email
-                - newPassword
-                - verificationCode
               properties:
                 email:
                   type: string
                   format: email
                   example: user@example.com
+      responses:
+        '202':
+          description: Password reset link sent (if email exists)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                    example: "If your email is registered, we have sent you a password reset link. Please check your inbox."
+        '400':
+          description: Invalid request
+
+  /api/auth/reset-password:
+    post:
+      summary: Reset password with code or link
+      description: |
+        Reset user password using either:
+        - Numeric code verification: Provide `email`, `newPassword`, and `otp` (6-digit code)
+        - Magic link verification: Provide `newPassword` and `otp` (64-character token from link), omit `email`
+      tags:
+        - Client
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - newPassword
+                - otp
+              properties:
+                email:
+                  type: string
+                  format: email
+                  description: Required for code-based reset, omit for magic link reset
+                  example: user@example.com
                 newPassword:
                   type: string
                   description: New password meeting configured requirements
                   example: newSecurePassword123
-                verificationCode:
+                otp:
                   type: string
-                  minLength: 4
-                  maxLength: 8
+                  description: Either a 6-digit numeric code or a 64-character hex token from magic link
                   example: "123456"
       responses:
         '200':
@@ -618,7 +694,7 @@ paths:
         '400':
           description: Invalid request or password requirements not met
         '401':
-          description: Verification code expired or invalid
+          description: Verification code/token expired or invalid
 
   /api/auth/oauth/configs:
     get:

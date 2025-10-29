@@ -69,8 +69,8 @@ export class AuthConfigService {
   }
 
   /**
-   * Create default authentication configuration
-   * This should only be called if the config doesn't exist
+   * Create default authentication configuration (idempotent and race-safe)
+   * Uses UPSERT to handle concurrent cold starts gracefully
    * @param externalClient - Optional client to use (for transaction support)
    */
   private async createDefaultConfig(externalClient?: PoolClient): Promise<EmailAuthConfigSchema> {
@@ -78,6 +78,8 @@ export class AuthConfigService {
     const shouldReleaseClient = !externalClient;
 
     try {
+      // Use ON CONFLICT DO NOTHING to make insert idempotent
+      // The singleton constraint (idx_auth_configs_singleton) prevents duplicates
       const result = await client.query(
         `INSERT INTO _auth_configs (
           require_email_verification,
@@ -87,6 +89,7 @@ export class AuthConfigService {
           require_uppercase,
           require_special_char
         ) VALUES ($1, $2, $3, $4, $5, $6)
+        ON CONFLICT ON CONSTRAINT idx_auth_configs_singleton DO NOTHING
         RETURNING
           id,
           require_email_verification as "requireEmailVerification",
@@ -99,6 +102,27 @@ export class AuthConfigService {
           updated_at as "updatedAt"`,
         [false, 6, false, false, false, false]
       );
+
+      // If insert was skipped due to conflict (concurrent insert won the race),
+      // read the existing row that was created by the other request
+      if (result.rows.length === 0) {
+        logger.info('Default auth config already exists (concurrent creation), reading existing row');
+        const existingResult = await client.query(
+          `SELECT
+            id,
+            require_email_verification as "requireEmailVerification",
+            password_min_length as "passwordMinLength",
+            require_number as "requireNumber",
+            require_lowercase as "requireLowercase",
+            require_uppercase as "requireUppercase",
+            require_special_char as "requireSpecialChar",
+            created_at as "createdAt",
+            updated_at as "updatedAt"
+           FROM _auth_configs
+           LIMIT 1`
+        );
+        return existingResult.rows[0];
+      }
 
       logger.info('Default auth config created');
       return result.rows[0];
