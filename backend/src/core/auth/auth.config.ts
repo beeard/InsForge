@@ -93,7 +93,7 @@ export class AuthConfigService {
           verify_email_url,
           reset_password_url
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-        ON CONFLICT ON CONSTRAINT idx_auth_configs_singleton DO NOTHING
+        ON CONFLICT DO NOTHING
         RETURNING
           id,
           require_email_verification as "requireEmailVerification",

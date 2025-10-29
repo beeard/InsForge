@@ -38,6 +38,14 @@ paths:
                     type: boolean
                   requireSpecialChar:
                     type: boolean
+                  verifyEmailUrl:
+                    type: string
+                    nullable: true
+                    description: Custom URL for email verification (if not set, uses default built-in page)
+                  resetPasswordUrl:
+                    type: string
+                    nullable: true
+                    description: Custom URL for password reset (if not set, uses default built-in page)
                   createdAt:
                     type: string
                     format: date-time
@@ -77,6 +85,14 @@ paths:
                   type: boolean
                 requireSpecialChar:
                   type: boolean
+                verifyEmailUrl:
+                  type: string
+                  nullable: true
+                  description: Custom URL for email verification (if not set, uses default built-in page)
+                resetPasswordUrl:
+                  type: string
+                  nullable: true
+                  description: Custom URL for password reset (if not set, uses default built-in page)
       responses:
         '200':
           description: Configuration updated successfully
@@ -102,6 +118,14 @@ paths:
                     type: boolean
                   requireSpecialChar:
                     type: boolean
+                  verifyEmailUrl:
+                    type: string
+                    nullable: true
+                    description: Custom URL for email verification (if not set, uses default built-in page)
+                  resetPasswordUrl:
+                    type: string
+                    nullable: true
+                    description: Custom URL for password reset (if not set, uses default built-in page)
                   createdAt:
                     type: string
                     format: date-time
@@ -464,7 +488,7 @@ paths:
   /api/auth/email/send-verification-code:
     post:
       summary: Send email verification code
-      description: Send a numeric 6-digit verification code to user's email address
+      description: Send a numeric 6-digit verification code to user's email address. Prevents user enumeration by returning success even if email doesn't exist.
       tags:
         - Client
       requestBody:
@@ -499,7 +523,7 @@ paths:
   /api/auth/email/send-verification-link:
     post:
       summary: Send email verification link
-      description: Send a magic link for email verification to user's email address
+      description: Send a magic link for email verification to user's email address. Prevents user enumeration by returning success even if email doesn't exist.
       tags:
         - Client
       requestBody:
@@ -540,6 +564,8 @@ paths:
         - Magic link verification: Provide only `otp` (64-character token from link)
 
         Successfully verified users will receive a session token.
+
+        Note: The magic link URL can be customized via `verifyEmailUrl` in the email auth config. If not set, the default built-in verification page is used.
       tags:
         - Client
       requestBody:
@@ -581,7 +607,7 @@ paths:
   /api/auth/email/send-reset-password-code:
     post:
       summary: Send password reset code
-      description: Send a numeric 6-digit password reset code to user's email address
+      description: Send a numeric 6-digit password reset code to user's email address. Prevents user enumeration by returning success even if email doesn't exist.
       tags:
         - Client
       requestBody:
@@ -616,7 +642,7 @@ paths:
   /api/auth/email/send-reset-password-link:
     post:
       summary: Send password reset link
-      description: Send a magic link for password reset to user's email address
+      description: Send a magic link for password reset to user's email address. Prevents user enumeration by returning success even if email doesn't exist.
       tags:
         - Client
       requestBody:
@@ -655,6 +681,8 @@ paths:
         Reset user password using either:
         - Numeric code verification: Provide `email`, `newPassword`, and `otp` (6-digit code)
         - Magic link verification: Provide `newPassword` and `otp` (64-character token from link), omit `email`
+
+        Note: The magic link URL can be customized via `resetPasswordUrl` in the email auth config. If not set, the default built-in reset password page is used.
       tags:
         - Client
       requestBody:
