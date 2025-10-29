@@ -106,7 +106,9 @@ export class AuthConfigService {
       // If insert was skipped due to conflict (concurrent insert won the race),
       // read the existing row that was created by the other request
       if (result.rows.length === 0) {
-        logger.info('Default auth config already exists (concurrent creation), reading existing row');
+        logger.info(
+          'Default auth config already exists (concurrent creation), reading existing row'
+        );
         const existingResult = await client.query(
           `SELECT
             id,
