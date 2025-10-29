@@ -91,6 +91,14 @@ export const emailAuthConfigSchema = z.object({
   requireLowercase: z.boolean(),
   requireUppercase: z.boolean(),
   requireSpecialChar: z.boolean(),
+  verifyEmailUrl: z
+    .union([z.string().url(), z.literal(''), z.null()])
+    .optional()
+    .transform((val) => (val === '' ? null : val)),
+  resetPasswordUrl: z
+    .union([z.string().url(), z.literal(''), z.null()])
+    .optional()
+    .transform((val) => (val === '' ? null : val)),
   createdAt: z.string(), // PostgreSQL timestamp
   updatedAt: z.string(), // PostgreSQL timestamp
 });

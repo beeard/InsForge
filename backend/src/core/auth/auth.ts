@@ -312,8 +312,13 @@ export class AuthService {
       EmailOTPType.LINK_TOKEN
     );
 
-    // Build magic link URL (only token, no email for privacy)
-    const linkUrl = `${getApiBaseUrl()}/auth/verify-email?token=${token}`;
+    // Get auth config to check for custom verify email URL
+    const authConfigService = AuthConfigService.getInstance();
+    const emailAuthConfig = await authConfigService.getEmailConfig();
+
+    // Build magic link URL (use custom URL if configured, otherwise default to built-in page)
+    const baseUrl = emailAuthConfig.verifyEmailUrl || `${getApiBaseUrl()}/auth/verify-email`;
+    const linkUrl = `${baseUrl}?token=${token}`;
 
     // Send email with magic link
     const emailService = EmailService.getInstance();
@@ -481,8 +486,13 @@ export class AuthService {
       EmailOTPType.LINK_TOKEN
     );
 
-    // Build magic link URL (only token, no email for privacy)
-    const linkUrl = `${getApiBaseUrl()}/auth/reset-password?token=${token}`;
+    // Get auth config to check for custom reset password URL
+    const authConfigService = AuthConfigService.getInstance();
+    const emailAuthConfig = await authConfigService.getEmailConfig();
+
+    // Build magic link URL (use custom URL if configured, otherwise default to built-in page)
+    const baseUrl = emailAuthConfig.resetPasswordUrl || `${getApiBaseUrl()}/auth/reset-password`;
+    const linkUrl = `${baseUrl}?token=${token}`;
 
     // Send email with magic link
     const emailService = EmailService.getInstance();

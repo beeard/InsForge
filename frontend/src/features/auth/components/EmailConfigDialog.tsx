@@ -37,6 +37,8 @@ export function EmailConfigDialog({ isOpen, onClose, onSuccess }: EmailConfigDia
       requireLowercase: false,
       requireUppercase: false,
       requireSpecialChar: false,
+      verifyEmailUrl: null,
+      resetPasswordUrl: null,
     },
   });
 
@@ -50,6 +52,8 @@ export function EmailConfigDialog({ isOpen, onClose, onSuccess }: EmailConfigDia
         requireLowercase: config.requireLowercase,
         requireUppercase: config.requireUppercase,
         requireSpecialChar: config.requireSpecialChar,
+        verifyEmailUrl: config.verifyEmailUrl ?? null,
+        resetPasswordUrl: config.resetPasswordUrl ?? null,
       });
     }
   }, [config, form, isOpen]);
@@ -114,13 +118,47 @@ export function EmailConfigDialog({ isOpen, onClose, onSuccess }: EmailConfigDia
                       )}
                     />
                   </div>
+
+                  {/* Verify Email URL - Only shown when email verification is enabled */}
+                  {form.watch('requireEmailVerification') && (
+                    <div className="flex flex-col gap-1">
+                      <div className="flex flex-row items-start justify-between gap-10">
+                        <div className="flex flex-col gap-1">
+                          <label className="text-sm text-zinc-950 dark:text-white">
+                            Email Verification Page URL
+                          </label>
+                          <span className="text-xs text-zinc-500 dark:text-neutral-400">
+                            Leave empty to use the default url
+                          </span>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <Input
+                            type="url"
+                            placeholder="https://yourapp.com/verify-email"
+                            {...form.register('verifyEmailUrl')}
+                            className={`w-[340px] dark:bg-neutral-900 dark:placeholder:text-neutral-400 dark:border-neutral-700 dark:text-white ${
+                              form.formState.errors.verifyEmailUrl
+                                ? 'border-red-500 dark:border-red-500'
+                                : ''
+                            }`}
+                          />
+                          {form.formState.errors.verifyEmailUrl && (
+                            <span className="text-xs text-red-500">
+                              {form.formState.errors.verifyEmailUrl.message ||
+                                'Please enter a valid URL'}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
               {/* Password Requirements Section */}
               <div className="space-y-6 p-6 border-t border-zinc-200 dark:border-neutral-700">
                 {/* Password Length */}
-                <div className="flex flex-row items-center justify-between gap-10">
+                <div className="flex flex-row items-start justify-between gap-10">
                   <div className="flex flex-col gap-1">
                     <label className="text-sm text-zinc-950 dark:text-white">
                       Minimum Password Length
@@ -129,13 +167,25 @@ export function EmailConfigDialog({ isOpen, onClose, onSuccess }: EmailConfigDia
                       Must be between 4 and 128 characters
                     </span>
                   </div>
-                  <Input
-                    type="number"
-                    min="4"
-                    max="128"
-                    {...form.register('passwordMinLength', { valueAsNumber: true })}
-                    className="w-[340px] dark:bg-neutral-900 dark:placeholder:text-neutral-400 dark:border-neutral-700 dark:text-white"
-                  />
+                  <div className="flex flex-col gap-1">
+                    <Input
+                      type="number"
+                      min="4"
+                      max="128"
+                      {...form.register('passwordMinLength', { valueAsNumber: true })}
+                      className={`w-[340px] dark:bg-neutral-900 dark:placeholder:text-neutral-400 dark:border-neutral-700 dark:text-white ${
+                        form.formState.errors.passwordMinLength
+                          ? 'border-red-500 dark:border-red-500'
+                          : ''
+                      }`}
+                    />
+                    {form.formState.errors.passwordMinLength && (
+                      <span className="text-xs text-red-500">
+                        {form.formState.errors.passwordMinLength.message ||
+                          'Must be between 4 and 128 characters'}
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 {/* Password Strength Checkboxes */}
@@ -209,6 +259,38 @@ export function EmailConfigDialog({ isOpen, onClose, onSuccess }: EmailConfigDia
                     />
                   </div>
                 </div>
+
+                {/* Password Reset URL - Only shown for InsForge Cloud projects */}
+                {isInsForgeCloudProject() && (
+                  <div className="flex flex-row items-start justify-between gap-10">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-sm text-zinc-950 dark:text-white">
+                        Password Reset Page URL
+                      </label>
+                      <span className="text-xs text-zinc-500 dark:text-neutral-400">
+                        Leave empty to use the default url
+                      </span>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <Input
+                        type="url"
+                        placeholder="https://yourapp.com/reset-password"
+                        {...form.register('resetPasswordUrl')}
+                        className={`w-[340px] dark:bg-neutral-900 dark:placeholder:text-neutral-400 dark:border-neutral-700 dark:text-white ${
+                          form.formState.errors.resetPasswordUrl
+                            ? 'border-red-500 dark:border-red-500'
+                            : ''
+                        }`}
+                      />
+                      {form.formState.errors.resetPasswordUrl && (
+                        <span className="text-xs text-red-500">
+                          {form.formState.errors.resetPasswordUrl.message ||
+                            'Please enter a valid URL'}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </form>
 

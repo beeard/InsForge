@@ -43,6 +43,8 @@ export class AuthConfigService {
           require_lowercase as "requireLowercase",
           require_uppercase as "requireUppercase",
           require_special_char as "requireSpecialChar",
+          verify_email_url as "verifyEmailUrl",
+          reset_password_url as "resetPasswordUrl",
           created_at as "createdAt",
           updated_at as "updatedAt"
          FROM _auth_configs
@@ -87,8 +89,10 @@ export class AuthConfigService {
           require_number,
           require_lowercase,
           require_uppercase,
-          require_special_char
-        ) VALUES ($1, $2, $3, $4, $5, $6)
+          require_special_char,
+          verify_email_url,
+          reset_password_url
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         ON CONFLICT ON CONSTRAINT idx_auth_configs_singleton DO NOTHING
         RETURNING
           id,
@@ -98,9 +102,11 @@ export class AuthConfigService {
           require_lowercase as "requireLowercase",
           require_uppercase as "requireUppercase",
           require_special_char as "requireSpecialChar",
+          verify_email_url as "verifyEmailUrl",
+          reset_password_url as "resetPasswordUrl",
           created_at as "createdAt",
           updated_at as "updatedAt"`,
-        [false, 6, false, false, false, false]
+        [false, 6, false, false, false, false, null, null]
       );
 
       // If insert was skipped due to conflict (concurrent insert won the race),
@@ -118,6 +124,8 @@ export class AuthConfigService {
             require_lowercase as "requireLowercase",
             require_uppercase as "requireUppercase",
             require_special_char as "requireSpecialChar",
+            verify_email_url as "verifyEmailUrl",
+            reset_password_url as "resetPasswordUrl",
             created_at as "createdAt",
             updated_at as "updatedAt"
            FROM _auth_configs
@@ -161,7 +169,7 @@ export class AuthConfigService {
 
       // Build update query
       const updates: string[] = [];
-      const values: (string | number | boolean)[] = [];
+      const values: (string | number | boolean | null)[] = [];
       let paramCount = 1;
 
       if (input.requireEmailVerification !== undefined) {
@@ -194,6 +202,16 @@ export class AuthConfigService {
         values.push(input.requireSpecialChar);
       }
 
+      if (input.verifyEmailUrl !== undefined) {
+        updates.push(`verify_email_url = $${paramCount++}`);
+        values.push(input.verifyEmailUrl);
+      }
+
+      if (input.resetPasswordUrl !== undefined) {
+        updates.push(`reset_password_url = $${paramCount++}`);
+        values.push(input.resetPasswordUrl);
+      }
+
       if (!updates.length) {
         await client.query('COMMIT');
         // Return current config if no updates
@@ -214,6 +232,8 @@ export class AuthConfigService {
            require_lowercase as "requireLowercase",
            require_uppercase as "requireUppercase",
            require_special_char as "requireSpecialChar",
+           verify_email_url as "verifyEmailUrl",
+           reset_password_url as "resetPasswordUrl",
            created_at as "createdAt",
            updated_at as "updatedAt"`,
         values
