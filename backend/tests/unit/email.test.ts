@@ -121,12 +121,9 @@ describe('EmailService', () => {
         data: { success: true },
       });
 
-      await emailService.sendWithTemplate(
-        'user@example.com',
-        'Jane Smith',
-        'reset-password-code',
-        { token: 'reset123' }
-      );
+      await emailService.sendWithTemplate('user@example.com', 'Jane Smith', 'reset-password-code', {
+        token: 'reset123',
+      });
 
       expect(axios.post).toHaveBeenCalledWith(
         expect.any(String),
@@ -143,12 +140,9 @@ describe('EmailService', () => {
         data: { success: true },
       });
 
-      await emailService.sendWithTemplate(
-        'user@example.com',
-        'Jane Smith',
-        'reset-password-link',
-        { magic_link: 'https://example.com/reset?token=xyz789' }
-      );
+      await emailService.sendWithTemplate('user@example.com', 'Jane Smith', 'reset-password-link', {
+        magic_link: 'https://example.com/reset?token=xyz789',
+      });
 
       expect(axios.post).toHaveBeenCalledWith(
         expect.any(String),
@@ -361,9 +355,14 @@ describe('EmailService', () => {
         data: { success: true },
       });
 
-      await emailService.sendWithTemplate('user@example.com', 'John Doe', 'email-verification-code', {
-        token: '123456',
-      });
+      await emailService.sendWithTemplate(
+        'user@example.com',
+        'John Doe',
+        'email-verification-code',
+        {
+          token: '123456',
+        }
+      );
 
       expect(jwt.sign).toHaveBeenCalledWith({ sub: 'test-project-123' }, 'test-jwt-secret', {
         expiresIn: '10m',
