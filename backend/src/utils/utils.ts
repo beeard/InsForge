@@ -100,3 +100,15 @@ export function generateNumericCode(length: number): string {
 
   return result;
 }
+
+/**
+ * Generate a cryptographically secure random token
+ * @param bytes - Number of random bytes to generate (default: 32)
+ * @returns Hex-encoded string (length = bytes * 2 characters)
+ * @example
+ * generateSecureToken(32) // Returns 64-character hex string (256 bits entropy)
+ * generateSecureToken(16) // Returns 32-character hex string (128 bits entropy)
+ */
+export function generateSecureToken(bytes: number = 32): string {
+  return crypto.randomBytes(bytes).toString('hex');
+}

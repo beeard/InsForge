@@ -60,7 +60,7 @@ describe('EmailService', () => {
   });
 
   describe('sendWithTemplate', () => {
-    it('successfully sends email with verification template', async () => {
+    it('successfully sends email with verification code template', async () => {
       vi.mocked(axios.post).mockResolvedValue({
         data: { success: true },
       });
@@ -68,8 +68,8 @@ describe('EmailService', () => {
       await emailService.sendWithTemplate(
         'user@example.com',
         'John Doe',
-        '123456',
-        'email-verification'
+        'email-verification-code',
+        { token: '123456' }
       );
 
       expect(jwt.sign).toHaveBeenCalledWith({ sub: 'test-project-123' }, 'test-jwt-secret', {
@@ -81,8 +81,8 @@ describe('EmailService', () => {
         {
           email: 'user@example.com',
           name: 'John Doe',
-          token: '123456',
-          template: 'email-verification',
+          template: 'email-verification-code',
+          variables: { token: '123456' },
         },
         {
           headers: {
@@ -94,7 +94,29 @@ describe('EmailService', () => {
       );
     });
 
-    it('successfully sends email with reset-password template', async () => {
+    it('successfully sends email with verification link template', async () => {
+      vi.mocked(axios.post).mockResolvedValue({
+        data: { success: true },
+      });
+
+      await emailService.sendWithTemplate(
+        'user@example.com',
+        'John Doe',
+        'email-verification-link',
+        { magic_link: 'https://example.com/verify?token=abc123' }
+      );
+
+      expect(axios.post).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          template: 'email-verification-link',
+          variables: { magic_link: 'https://example.com/verify?token=abc123' },
+        }),
+        expect.any(Object)
+      );
+    });
+
+    it('successfully sends email with reset-password code template', async () => {
       vi.mocked(axios.post).mockResolvedValue({
         data: { success: true },
       });
@@ -102,15 +124,37 @@ describe('EmailService', () => {
       await emailService.sendWithTemplate(
         'user@example.com',
         'Jane Smith',
-        'reset123',
-        'reset-password'
+        'reset-password-code',
+        { token: 'reset123' }
       );
 
       expect(axios.post).toHaveBeenCalledWith(
         expect.any(String),
         expect.objectContaining({
-          template: 'reset-password',
-          token: 'reset123',
+          template: 'reset-password-code',
+          variables: { token: 'reset123' },
+        }),
+        expect.any(Object)
+      );
+    });
+
+    it('successfully sends email with reset-password link template', async () => {
+      vi.mocked(axios.post).mockResolvedValue({
+        data: { success: true },
+      });
+
+      await emailService.sendWithTemplate(
+        'user@example.com',
+        'Jane Smith',
+        'reset-password-link',
+        { magic_link: 'https://example.com/reset?token=xyz789' }
+      );
+
+      expect(axios.post).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          template: 'reset-password-link',
+          variables: { magic_link: 'https://example.com/reset?token=xyz789' },
         }),
         expect.any(Object)
       );
@@ -121,11 +165,15 @@ describe('EmailService', () => {
       config.cloud.projectId = 'local';
 
       await expect(
-        emailService.sendWithTemplate('user@example.com', 'John', '123456', 'email-verification')
+        emailService.sendWithTemplate('user@example.com', 'John', 'email-verification-code', {
+          token: '123456',
+        })
       ).rejects.toThrow(AppError);
 
       await expect(
-        emailService.sendWithTemplate('user@example.com', 'John', '123456', 'email-verification')
+        emailService.sendWithTemplate('user@example.com', 'John', 'email-verification-code', {
+          token: '123456',
+        })
       ).rejects.toThrow('PROJECT_ID is not configured');
 
       // Reset for other tests
@@ -137,11 +185,15 @@ describe('EmailService', () => {
       config.app.jwtSecret = '';
 
       await expect(
-        emailService.sendWithTemplate('user@example.com', 'John', '123456', 'email-verification')
+        emailService.sendWithTemplate('user@example.com', 'John', 'email-verification-code', {
+          token: '123456',
+        })
       ).rejects.toThrow(AppError);
 
       await expect(
-        emailService.sendWithTemplate('user@example.com', 'John', '123456', 'email-verification')
+        emailService.sendWithTemplate('user@example.com', 'John', 'email-verification-code', {
+          token: '123456',
+        })
       ).rejects.toThrow('JWT_SECRET is not configured');
 
       // Reset for other tests
@@ -150,15 +202,11 @@ describe('EmailService', () => {
 
     it('throws error if required parameters are missing', async () => {
       await expect(
-        emailService.sendWithTemplate('', 'John', '123456', 'email-verification')
+        emailService.sendWithTemplate('', 'John', 'email-verification-code')
       ).rejects.toThrow('Missing required parameters');
 
       await expect(
-        emailService.sendWithTemplate('user@example.com', '', '123456', 'email-verification')
-      ).rejects.toThrow('Missing required parameters');
-
-      await expect(
-        emailService.sendWithTemplate('user@example.com', 'John', '', 'email-verification')
+        emailService.sendWithTemplate('user@example.com', '', 'email-verification-code')
       ).rejects.toThrow('Missing required parameters');
     });
 
@@ -180,7 +228,9 @@ describe('EmailService', () => {
       });
 
       await expect(
-        emailService.sendWithTemplate('user@example.com', 'John', '123456', 'email-verification')
+        emailService.sendWithTemplate('user@example.com', 'John', 'email-verification-code', {
+          token: '123456',
+        })
       ).rejects.toThrow('Email service returned unsuccessful response');
     });
 
@@ -197,7 +247,9 @@ describe('EmailService', () => {
       vi.mocked(axios.isAxiosError).mockReturnValue(true);
 
       await expect(
-        emailService.sendWithTemplate('user@example.com', 'John', '123456', 'email-verification')
+        emailService.sendWithTemplate('user@example.com', 'John', 'email-verification-code', {
+          token: '123456',
+        })
       ).rejects.toThrow('Authentication failed with cloud email service');
     });
 
@@ -214,7 +266,9 @@ describe('EmailService', () => {
       vi.mocked(axios.isAxiosError).mockReturnValue(true);
 
       await expect(
-        emailService.sendWithTemplate('user@example.com', 'John', '123456', 'email-verification')
+        emailService.sendWithTemplate('user@example.com', 'John', 'email-verification-code', {
+          token: '123456',
+        })
       ).rejects.toThrow('Authentication failed with cloud email service');
     });
 
@@ -231,7 +285,9 @@ describe('EmailService', () => {
       vi.mocked(axios.isAxiosError).mockReturnValue(true);
 
       await expect(
-        emailService.sendWithTemplate('user@example.com', 'John', '123456', 'email-verification')
+        emailService.sendWithTemplate('user@example.com', 'John', 'email-verification-code', {
+          token: '123456',
+        })
       ).rejects.toThrow('Email rate limit exceeded');
     });
 
@@ -248,7 +304,9 @@ describe('EmailService', () => {
       vi.mocked(axios.isAxiosError).mockReturnValue(true);
 
       await expect(
-        emailService.sendWithTemplate('user@example.com', 'John', '123456', 'email-verification')
+        emailService.sendWithTemplate('user@example.com', 'John', 'email-verification-code', {
+          token: '123456',
+        })
       ).rejects.toThrow('Invalid email request: Invalid email format');
     });
 
@@ -265,7 +323,9 @@ describe('EmailService', () => {
       vi.mocked(axios.isAxiosError).mockReturnValue(true);
 
       await expect(
-        emailService.sendWithTemplate('user@example.com', 'John', '123456', 'email-verification')
+        emailService.sendWithTemplate('user@example.com', 'John', 'email-verification-code', {
+          token: '123456',
+        })
       ).rejects.toThrow('Failed to send email: Internal server error');
     });
 
@@ -278,7 +338,9 @@ describe('EmailService', () => {
       vi.mocked(axios.isAxiosError).mockReturnValue(true);
 
       await expect(
-        emailService.sendWithTemplate('user@example.com', 'John', '123456', 'email-verification')
+        emailService.sendWithTemplate('user@example.com', 'John', 'email-verification-code', {
+          token: '123456',
+        })
       ).rejects.toThrow('Failed to send email: Network error');
     });
 
@@ -286,50 +348,10 @@ describe('EmailService', () => {
       vi.mocked(axios.post).mockRejectedValue(new Error('Unexpected error'));
 
       await expect(
-        emailService.sendWithTemplate('user@example.com', 'John', '123456', 'email-verification')
-      ).rejects.toThrow('Failed to send email: Unexpected error');
-    });
-  });
-
-  describe('sendVerificationEmail', () => {
-    it('calls sendWithTemplate with email-verification template', async () => {
-      vi.mocked(axios.post).mockResolvedValue({
-        data: { success: true },
-      });
-
-      await emailService.sendVerificationEmail('user@example.com', 'John Doe', '123456');
-
-      expect(axios.post).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.objectContaining({
-          template: 'email-verification',
-          email: 'user@example.com',
-          name: 'John Doe',
+        emailService.sendWithTemplate('user@example.com', 'John', 'email-verification-code', {
           token: '123456',
-        }),
-        expect.any(Object)
-      );
-    });
-  });
-
-  describe('sendPasswordResetEmail', () => {
-    it('calls sendWithTemplate with reset-password template', async () => {
-      vi.mocked(axios.post).mockResolvedValue({
-        data: { success: true },
-      });
-
-      await emailService.sendPasswordResetEmail('user@example.com', 'Jane Smith', 'reset789');
-
-      expect(axios.post).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.objectContaining({
-          template: 'reset-password',
-          email: 'user@example.com',
-          name: 'Jane Smith',
-          token: 'reset789',
-        }),
-        expect.any(Object)
-      );
+        })
+      ).rejects.toThrow('Failed to send email: Unexpected error');
     });
   });
 
@@ -339,12 +361,9 @@ describe('EmailService', () => {
         data: { success: true },
       });
 
-      await emailService.sendWithTemplate(
-        'user@example.com',
-        'John Doe',
-        '123456',
-        'email-verification'
-      );
+      await emailService.sendWithTemplate('user@example.com', 'John Doe', 'email-verification-code', {
+        token: '123456',
+      });
 
       expect(jwt.sign).toHaveBeenCalledWith({ sub: 'test-project-123' }, 'test-jwt-secret', {
         expiresIn: '10m',

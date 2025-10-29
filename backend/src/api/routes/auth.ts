@@ -442,9 +442,9 @@ router.post('/tokens/anon', verifyAdmin, (_req: Request, res: Response, next: Ne
   }
 });
 
-// POST /api/auth/resend-verification-email - Resend email verification code
+// POST /api/auth/email/send-verification-code - Send email verification code
 router.post(
-  '/resend-verification-email',
+  '/email/send-verification-code',
   sendEmailOTPLimiter,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -461,7 +461,7 @@ router.post(
 
       // Attempt to send verification email, but don't expose whether user exists
       try {
-        await authService.sendVerificationEmail(email);
+        await authService.sendVerificationEmailWithCode(email);
       } catch {
         // Silently catch errors to prevent user enumeration
         // Rate limiting still applies to prevent abuse
@@ -479,7 +479,46 @@ router.post(
   }
 );
 
-// POST /api/auth/verify-email - Verify email with code
+// POST /api/auth/email/send-verification-link - Send email verification magic link
+router.post(
+  '/email/send-verification-link',
+  sendEmailOTPLimiter,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const validationResult = resendVerificationEmailRequestSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        throw new AppError(
+          validationResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', '),
+          400,
+          ERROR_CODES.INVALID_INPUT
+        );
+      }
+
+      const { email } = validationResult.data;
+
+      // Attempt to send magic link, but don't expose whether user exists
+      try {
+        await authService.sendVerificationEmailWithLink(email);
+      } catch {
+        // Silently catch errors to prevent user enumeration
+        // Rate limiting still applies to prevent abuse
+      }
+
+      // Always return 202 Accepted with generic message
+      res.status(202).json({
+        success: true,
+        message:
+          'If your email is registered, we have sent you a verification link. Please check your inbox.',
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// POST /api/auth/verify-email - Verify email with OTP
+// If email is provided: uses numeric OTP verification (6-digit code)
+// If email is NOT provided: uses link OTP verification (64-char token)
 router.post(
   '/verify-email',
   verifyOTPLimiter,
@@ -493,8 +532,19 @@ router.post(
           ERROR_CODES.INVALID_INPUT
         );
       }
-      const { email, verificationCode } = validationResult.data;
-      const result: CreateSessionResponse = await authService.verifyEmail(email, verificationCode);
+
+      const { email, otp } = validationResult.data;
+
+      let result: CreateSessionResponse;
+
+      if (email) {
+        // Numeric OTP verification (email + otp where otp is 6-digit code)
+        result = await authService.verifyEmailWithCode(email, otp);
+      } else {
+        // Link OTP verification (otp is 64-char hex token)
+        result = await authService.verifyEmailWithLinkToken(otp);
+      }
+
       successResponse(res, result); // Return session info upon successful verification
     } catch (error) {
       next(error);
@@ -502,9 +552,9 @@ router.post(
   }
 );
 
-// POST /api/auth/send-reset-password-email - Send password reset code
+// POST /api/auth/email/send-reset-password-code - Send password reset code
 router.post(
-  '/send-reset-password-email',
+  '/email/send-reset-password-code',
   sendEmailOTPLimiter,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -521,7 +571,7 @@ router.post(
 
       // Attempt to send password reset email, but don't expose whether user exists
       try {
-        await authService.sendResetPasswordEmail(email);
+        await authService.sendResetPasswordEmailWithCode(email);
       } catch {
         // Silently catch errors to prevent user enumeration
         // Rate limiting still applies to prevent abuse
@@ -539,7 +589,46 @@ router.post(
   }
 );
 
-// POST /api/auth/reset-password - Reset password with code
+// POST /api/auth/email/send-reset-password-link - Send password reset magic link
+router.post(
+  '/email/send-reset-password-link',
+  sendEmailOTPLimiter,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const validationResult = sendResetPasswordEmailRequestSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        throw new AppError(
+          validationResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', '),
+          400,
+          ERROR_CODES.INVALID_INPUT
+        );
+      }
+
+      const { email } = validationResult.data;
+
+      // Attempt to send password reset magic link, but don't expose whether user exists
+      try {
+        await authService.sendResetPasswordEmailWithLink(email);
+      } catch {
+        // Silently catch errors to prevent user enumeration
+        // Rate limiting still applies to prevent abuse
+      }
+
+      // Always return 202 Accepted with generic message
+      res.status(202).json({
+        success: true,
+        message:
+          'If your email is registered, we have sent you a password reset link. Please check your inbox.',
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// POST /api/auth/reset-password - Reset password with code or link token
+// If email is provided: uses numeric code verification (resetPasswordWithCode)
+// If email is NOT provided: uses link token verification (resetPasswordWithLinkToken)
 router.post(
   '/reset-password',
   verifyOTPLimiter,
@@ -554,8 +643,16 @@ router.post(
         );
       }
 
-      const { email, newPassword, verificationCode } = validationResult.data;
-      await authService.resetPassword(email, newPassword, verificationCode);
+      const { email, newPassword, otp } = validationResult.data;
+
+      if (email) {
+        // Code-based reset (email + otp where otp is 6-digit code)
+        await authService.resetPasswordWithCode(email, newPassword, otp);
+      } else {
+        // Link token-based reset (otp is 64-char hex)
+        await authService.resetPasswordWithLinkToken(newPassword, otp);
+      }
+
       successResponse(res, {
         message: 'Password reset successfully. Please login with your new password.',
       });

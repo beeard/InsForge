@@ -71,11 +71,19 @@ export const resendVerificationEmailRequestSchema = z.object({
   email: emailSchema,
 });
 
-// /api/auth/verify-email - Verify email verification
-export const verifyEmailRequestSchema = z.object({
-  email: emailSchema,
-  verificationCode: z.string().min(4).max(8),
-});
+/**
+ * POST /api/auth/verify-email - Verify email with OTP
+ * - With email: numeric OTP verification (email + otp required, otp is 6-digit code)
+ * - Without email: link OTP verification (otp required, otp is 64-char hex token)
+ */
+export const verifyEmailRequestSchema = z
+  .object({
+    email: emailSchema.optional(),
+    otp: z.string().min(1),
+  })
+  .refine((data) => data.email || data.otp, {
+    message: 'Either email or otp must be provided',
+  });
 
 /**
  * POST /api/auth/send-reset-password-email - Send reset password email
@@ -85,13 +93,19 @@ export const sendResetPasswordEmailRequestSchema = z.object({
 });
 
 /**
- * POST /api/auth/reset-password - Reset password with verification code
+ * POST /api/auth/reset-password - Reset password with OTP
+ * - With email: numeric OTP reset (email + otp + newPassword required, otp is 6-digit code)
+ * - Without email: link OTP reset (otp + newPassword required, otp is 64-char hex token)
  */
-export const resetPasswordRequestSchema = z.object({
-  email: emailSchema,
-  newPassword: passwordSchema,
-  verificationCode: z.string().min(4).max(8),
-});
+export const resetPasswordRequestSchema = z
+  .object({
+    email: emailSchema.optional(),
+    newPassword: passwordSchema,
+    otp: z.string().min(1),
+  })
+  .refine((data) => data.email || data.otp, {
+    message: 'Either email or otp must be provided',
+  });
 
 // ============================================================================
 // Response schemas
@@ -101,7 +115,7 @@ export const resetPasswordRequestSchema = z.object({
  * Response for POST /api/auth/users
  */
 export const createUserResponseSchema = z.object({
-  user: userSchema,
+  user: userSchema.optional(),
   accessToken: z.string().nullable(),
   requiresEmailVerification: z.boolean().optional(),
 });

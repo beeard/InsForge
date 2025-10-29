@@ -8,7 +8,11 @@ import { ERROR_CODES } from '@/types/error-constants';
 /**
  * Email template types supported by the cloud backend
  */
-export type EmailTemplate = 'email-verification' | 'reset-password';
+export type EmailTemplate =
+  | 'email-verification-code' // Numeric OTP for email verification
+  | 'email-verification-link' // Magic link for email verification
+  | 'reset-password-code' // Numeric OTP for password reset
+  | 'reset-password-link'; // Magic link for password reset
 
 /**
  * Email service for sending emails via cloud backend
@@ -65,15 +69,15 @@ export class EmailService {
    * Send email using predefined template
    * @param email - Recipient email address
    * @param name - Recipient name
-   * @param token - Token to use in the email template (verification code, reset link, etc.)
    * @param template - Template type (email-verification or reset-password)
+   * @param variables - Variables to use in the email template
    * @returns Promise that resolves when email is sent successfully
    */
   public async sendWithTemplate(
     email: string,
     name: string,
-    token: string,
-    template: EmailTemplate
+    template: EmailTemplate,
+    variables?: Record<string, string>
   ): Promise<void> {
     try {
       const projectId = config.cloud.projectId;
@@ -81,7 +85,7 @@ export class EmailService {
       const signToken = this.generateSignToken();
 
       // Validate inputs
-      if (!email || !name || !token || !template) {
+      if (!email || !name || !template) {
         throw new AppError(
           'Missing required parameters for sending email',
           400,
@@ -89,9 +93,15 @@ export class EmailService {
         );
       }
 
-      if (!['email-verification', 'reset-password'].includes(template)) {
+      const validTemplates: EmailTemplate[] = [
+        'email-verification-code',
+        'email-verification-link',
+        'reset-password-code',
+        'reset-password-link',
+      ];
+      if (!validTemplates.includes(template)) {
         throw new AppError(
-          `Invalid template type: ${template}. Must be 'email-verification' or 'reset-password'`,
+          `Invalid template type: ${template}. Must be one of: ${validTemplates.join(', ')}`,
           400,
           ERROR_CODES.INVALID_INPUT
         );
@@ -103,8 +113,8 @@ export class EmailService {
         {
           email,
           name,
-          token,
           template,
+          variables,
         },
         {
           headers: {
@@ -187,33 +197,5 @@ export class EmailService {
         ERROR_CODES.INTERNAL_ERROR
       );
     }
-  }
-
-  /**
-   * Send email verification code
-   * @param email - Recipient email address
-   * @param name - Recipient name
-   * @param verificationCode - Verification code to send
-   */
-  public async sendVerificationEmail(
-    email: string,
-    name: string,
-    verificationCode: string
-  ): Promise<void> {
-    return this.sendWithTemplate(email, name, verificationCode, 'email-verification');
-  }
-
-  /**
-   * Send password reset code
-   * @param email - Recipient email address
-   * @param name - Recipient name
-   * @param resetCode - Password reset code to send
-   */
-  public async sendPasswordResetEmail(
-    email: string,
-    name: string,
-    resetCode: string
-  ): Promise<void> {
-    return this.sendWithTemplate(email, name, resetCode, 'reset-password');
   }
 }
