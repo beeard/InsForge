@@ -24,7 +24,7 @@ export function AppRoutes() {
       <Route
         path="/cloud/*"
         element={
-          <RequireAuth>
+          <RequireAuth redirectTo="/cloud/login">
             <CloudLayout>
               <Routes>
                 <Route path="/" element={<Navigate to="/cloud/dashboard" replace />} />
@@ -46,7 +46,7 @@ export function AppRoutes() {
       <Route
         path="/*"
         element={
-          <RequireAuth>
+          <RequireAuth redirectTo="/dashboard/login">
             <Layout>
               <Routes>
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
