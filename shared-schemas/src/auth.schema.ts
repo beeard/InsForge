@@ -13,10 +13,7 @@ export const userIdSchema = z.string().uuid('Invalid user ID format');
 
 export const emailSchema = z.string().email('Invalid email format').toLowerCase().trim();
 
-export const passwordSchema = z
-  .string()
-  .min(6, 'Password must be at least 6 characters')
-  .max(32, 'Password must be less than 32 characters');
+export const passwordSchema = z.string();
 
 export const nameSchema = z
   .string()
@@ -85,6 +82,27 @@ export const oAuthConfigSchema = z.object({
   updatedAt: z.string(), // PostgreSQL timestamp
 });
 
+// Email authentication configuration schema
+export const emailAuthConfigSchema = z.object({
+  id: z.string().uuid(),
+  requireEmailVerification: z.boolean(),
+  passwordMinLength: z.number().min(4).max(128),
+  requireNumber: z.boolean(),
+  requireLowercase: z.boolean(),
+  requireUppercase: z.boolean(),
+  requireSpecialChar: z.boolean(),
+  verifyEmailRedirectTo: z
+    .union([z.string().url(), z.literal(''), z.null()])
+    .optional()
+    .transform((val) => (val === '' ? null : val)),
+  resetPasswordRedirectTo: z
+    .union([z.string().url(), z.literal(''), z.null()])
+    .optional()
+    .transform((val) => (val === '' ? null : val)),
+  createdAt: z.string(), // PostgreSQL timestamp
+  updatedAt: z.string(), // PostgreSQL timestamp
+});
+
 /**
  * JWT token payload schema
  */
@@ -108,3 +126,4 @@ export type UserSchema = z.infer<typeof userSchema>;
 export type TokenPayloadSchema = z.infer<typeof tokenPayloadSchema>;
 export type OAuthConfigSchema = z.infer<typeof oAuthConfigSchema>;
 export type OAuthProvidersSchema = z.infer<typeof oAuthProvidersSchema>;
+export type EmailAuthConfigSchema = z.infer<typeof emailAuthConfigSchema>;

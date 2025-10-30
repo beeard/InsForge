@@ -3,7 +3,7 @@ import { AIConfigService } from '@/core/ai/config.js';
 import { isCloudEnvironment } from '@/utils/environment.js';
 import logger from '@/utils/logger.js';
 import { SecretService } from '@/core/secrets/secrets';
-import { OAuthConfigService } from '@/core/auth/oauth.js';
+import { OAuthConfigService } from '@/core/auth/oauth.config.js';
 import { OAuthProvidersSchema } from '@insforge/shared-schemas';
 import { AuthService } from '@/core/auth/auth.js';
 

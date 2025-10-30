@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { AuthService } from '@/core/auth/auth.js';
-import { OAuthConfigService } from '@/core/auth/oauth.js';
+import { OAuthConfigService } from '@/core/auth/oauth.config.js';
 import { AuditService } from '@/core/logs/audit.js';
 import { AppError } from '@/api/middleware/error.js';
 import { ERROR_CODES } from '@/types/error-constants.js';
@@ -52,9 +52,9 @@ router.get('/configs', verifyAdmin, async (req: AuthRequest, res: Response, next
   }
 });
 
-// GET /api/auth/oauth/configs/:provider - Get specific OAuth configuration (admin only)
+// GET /api/auth/oauth/:provider/config - Get specific OAuth configuration (admin only)
 router.get(
-  '/configs/:provider',
+  '/:provider/config',
   verifyAdmin,
   async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
@@ -137,9 +137,9 @@ router.post(
   }
 );
 
-// PUT /api/auth/oauth/configs/:provider - Update OAuth configuration (admin only)
+// PUT /api/auth/oauth/:provider/config - Update OAuth configuration (admin only)
 router.put(
-  '/configs/:provider',
+  '/:provider/config',
   verifyAdmin,
   async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
@@ -198,9 +198,9 @@ router.put(
   }
 );
 
-// DELETE /api/auth/oauth/configs/:provider - Delete OAuth configuration (admin only)
+// DELETE /api/auth/oauth/:provider/config - Delete OAuth configuration (admin only)
 router.delete(
-  '/configs/:provider',
+  '/:provider/config',
   verifyAdmin,
   async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
@@ -430,9 +430,9 @@ router.get('/shared/callback/:state', async (req: Request, res: Response, next: 
 
     const params = new URLSearchParams();
     params.set('access_token', result?.accessToken ?? '');
-    params.set('user_id', result?.user.id ?? '');
-    params.set('email', result?.user.email ?? '');
-    params.set('name', result?.user.name ?? '');
+    params.set('user_id', result?.user?.id ?? '');
+    params.set('email', result?.user?.email ?? '');
+    params.set('name', result?.user?.name ?? '');
 
     res.redirect(`${redirectUri}?${params.toString()}`);
   } catch (error) {
@@ -493,9 +493,9 @@ router.get('/:provider/callback', async (req: Request, res: Response, next: Next
       // Construct redirect URL with query parameters
       const params = new URLSearchParams();
       params.set('access_token', result?.accessToken ?? '');
-      params.set('user_id', result?.user.id ?? '');
-      params.set('email', result?.user.email ?? '');
-      params.set('name', result?.user.name ?? '');
+      params.set('user_id', result?.user?.id ?? '');
+      params.set('email', result?.user?.email ?? '');
+      params.set('name', result?.user?.name ?? '');
 
       const finalRedirectUri = `${redirectUri}?${params.toString()}`;
 

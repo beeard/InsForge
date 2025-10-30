@@ -115,12 +115,9 @@ export const jsonSchema = z
 
 export const stringSchema = z.union([z.string(), z.null()]);
 
-export const emailSchema = z.string().email('Invalid email address');
-export const passwordSchema = z.string().min(8, 'Password must be at least 8 characters');
-
 export const loginFormSchema = z.object({
-  email: emailSchema,
-  password: passwordSchema,
+  email: z.string(),
+  password: z.string(),
 });
 
-export type LoginFormData = z.infer<typeof loginFormSchema>;
+export type LoginForm = z.infer<typeof loginFormSchema>;

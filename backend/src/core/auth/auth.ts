@@ -14,12 +14,18 @@ import type {
   UserSchema,
   CreateUserResponse,
   CreateSessionResponse,
+  VerifyEmailResponse,
+  ResetPasswordResponse,
   CreateAdminSessionResponse,
   TokenPayloadSchema,
   AuthMetadataSchema,
   OAuthProvidersSchema,
 } from '@insforge/shared-schemas';
-import { OAuthConfigService } from './oauth';
+import { OAuthConfigService } from './oauth.config';
+import { AuthConfigService } from './auth.config';
+import { AuthOTPService, EmailOTPPurpose, EmailOTPType } from './auth.otp';
+import { validatePassword } from '@/utils/validations';
+import { getPasswordRequirementsMessage } from '@/utils/utils';
 import {
   FacebookUserInfo,
   GitHubEmailInfo,
@@ -34,6 +40,7 @@ import { ADMIN_ID } from '@/utils/constants';
 import { getApiBaseUrl } from '@/utils/environment';
 import { AppError } from '@/api/middleware/error';
 import { ERROR_CODES } from '@/types/error-constants';
+import { EmailService } from '../email';
 
 const JWT_SECRET = () => process.env.JWT_SECRET ?? '';
 const JWT_EXPIRES_IN = '7d';
@@ -143,42 +150,54 @@ export class AuthService {
         role: decoded.role || 'authenticated',
       };
     } catch {
-      throw new Error('Invalid token');
+      throw new AppError('Invalid token', 401, ERROR_CODES.AUTH_UNAUTHORIZED);
     }
   }
 
   /**
    * User registration
+   * If email verification is required, sends verification email and returns user without token
+   * Otherwise, returns user with access token for immediate login
    */
   async register(email: string, password: string, name?: string): Promise<CreateUserResponse> {
-    const existingUser = await this.db
-      .prepare('SELECT id FROM _accounts WHERE email = ?')
-      .get(email);
+    // Get email auth configuration and validate password
+    const authConfigService = AuthConfigService.getInstance();
+    const emailAuthConfig = await authConfigService.getEmailConfig();
 
-    if (existingUser) {
-      throw new Error('User already exists');
+    if (!validatePassword(password, emailAuthConfig)) {
+      throw new AppError(
+        getPasswordRequirementsMessage(emailAuthConfig),
+        400,
+        ERROR_CODES.INVALID_INPUT
+      );
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const userId = crypto.randomUUID();
+    await this.db.exec('BEGIN');
+    try {
+      await this.db
+        .prepare(
+          `INSERT INTO _accounts (id, email, password, name, email_verified, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, NOW(), NOW())`
+        )
+        .run(userId, email, hashedPassword, name || null, false);
 
-    await this.db
-      .prepare(
-        `
-      INSERT INTO _accounts (id, email, password, name, email_verified, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, NOW(), NOW())
-    `
-      )
-      .run(userId, email, hashedPassword, name || null, false);
-
-    await this.db
-      .prepare(
-        `
-      INSERT INTO users (id, nickname, created_at, updated_at)
-      VALUES (?, ?, NOW(), NOW())
-    `
-      )
-      .run(userId, name || null);
+      await this.db
+        .prepare(
+          `INSERT INTO users (id, nickname, created_at, updated_at)
+           VALUES (?, ?, NOW(), NOW())`
+        )
+        .run(userId, name || null);
+      await this.db.exec('COMMIT');
+    } catch (e) {
+      await this.db.exec('ROLLBACK');
+      // Postgres unique_violation
+      if (e && typeof e === 'object' && 'code' in e && e.code === '23505') {
+        throw new AppError('User already exists', 409, ERROR_CODES.ALREADY_EXISTS);
+      }
+      throw e;
+    }
 
     const dbUser = await this.db
       .prepare(
@@ -186,9 +205,25 @@ export class AuthService {
       )
       .get(userId);
     const user = this.dbUserToApiUser(dbUser);
+
+    // If email verification is required, send verification email and don't provide access token
+    if (emailAuthConfig.requireEmailVerification) {
+      try {
+        await this.sendVerificationEmailWithLink(email);
+      } catch (error) {
+        logger.warn('Verification email send failed during register', { error });
+      }
+
+      return {
+        accessToken: null,
+        requiresEmailVerification: true,
+      };
+    }
+
+    // Email verification not required, provide access token for immediate login
     const accessToken = this.generateToken({ sub: userId, email, role: 'authenticated' });
 
-    return { user, accessToken };
+    return { user, accessToken, requiresEmailVerification: false };
   }
 
   /**
@@ -198,12 +233,25 @@ export class AuthService {
     const dbUser = await this.db.prepare('SELECT * FROM _accounts WHERE email = ?').get(email);
 
     if (!dbUser || !dbUser.password) {
-      throw new Error('Invalid credentials');
+      throw new AppError('Invalid credentials', 401, ERROR_CODES.AUTH_UNAUTHORIZED);
     }
 
     const validPassword = await bcrypt.compare(password, dbUser.password);
     if (!validPassword) {
-      throw new Error('Invalid credentials');
+      throw new AppError('Invalid credentials', 401, ERROR_CODES.AUTH_UNAUTHORIZED);
+    }
+
+    // Check if email verification is required
+    const authConfigService = AuthConfigService.getInstance();
+    const emailAuthConfig = await authConfigService.getEmailConfig();
+
+    if (emailAuthConfig.requireEmailVerification && !dbUser.email_verified) {
+      throw new AppError(
+        'Email verification required',
+        403,
+        ERROR_CODES.FORBIDDEN,
+        'Please verify your email address before logging in'
+      );
     }
 
     const user = this.dbUserToApiUser(dbUser);
@@ -217,12 +265,398 @@ export class AuthService {
   }
 
   /**
+   * Send verification email with numeric OTP code
+   * Creates a 6-digit OTP and sends it via email for manual entry
+   */
+  async sendVerificationEmailWithCode(email: string): Promise<void> {
+    // Check if user exists
+    const dbUser = await this.db.prepare('SELECT * FROM _accounts WHERE email = ?').get(email);
+    if (!dbUser) {
+      // Silently succeed to prevent user enumeration
+      logger.info('Verification email requested for non-existent user', { email });
+      return;
+    }
+
+    // Create numeric OTP code using the OTP service
+    const otpService = AuthOTPService.getInstance();
+    const { otp: code } = await otpService.createEmailOTP(
+      email,
+      EmailOTPPurpose.VERIFY_EMAIL,
+      EmailOTPType.NUMERIC_CODE
+    );
+
+    // Send email with verification code
+    const emailService = EmailService.getInstance();
+    await emailService.sendWithTemplate(email, dbUser.name || 'User', 'email-verification-code', {
+      token: code,
+    });
+  }
+
+  /**
+   * Send verification email with magic link
+   * Creates a long cryptographic token and sends it via email as a clickable link
+   * The link contains only the token (no email) for better privacy and security
+   */
+  async sendVerificationEmailWithLink(email: string): Promise<void> {
+    // Check if user exists
+    const dbUser = await this.db.prepare('SELECT * FROM _accounts WHERE email = ?').get(email);
+    if (!dbUser) {
+      // Silently succeed to prevent user enumeration
+      logger.info('Verification email requested for non-existent user', { email });
+      return;
+    }
+
+    // Create long cryptographic token for magic link
+    const otpService = AuthOTPService.getInstance();
+    const { otp: token } = await otpService.createEmailOTP(
+      email,
+      EmailOTPPurpose.VERIFY_EMAIL,
+      EmailOTPType.LINK_TOKEN
+    );
+
+    // Build magic link URL using backend API endpoint
+    const linkUrl = `${getApiBaseUrl()}/auth/verify-email?token=${token}`;
+
+    // Send email with magic link
+    const emailService = EmailService.getInstance();
+    await emailService.sendWithTemplate(email, dbUser.name || 'User', 'email-verification-link', {
+      link: linkUrl,
+    });
+  }
+
+  /**
+   * Verify email with numeric code
+   * Verifies the email OTP code and updates the account in a single transaction
+   */
+  async verifyEmailWithCode(email: string, verificationCode: string): Promise<VerifyEmailResponse> {
+    const dbManager = DatabaseManager.getInstance();
+    const pool = dbManager.getPool();
+    const client = await pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      // Verify OTP using the OTP service (within the same transaction)
+      const otpService = AuthOTPService.getInstance();
+      await otpService.verifyNumericCode(
+        email,
+        EmailOTPPurpose.VERIFY_EMAIL,
+        verificationCode,
+        client
+      );
+
+      // Update account email verification status
+      const result = await client.query(
+        `UPDATE _accounts
+         SET email_verified = true, updated_at = NOW()
+         WHERE email = $1
+         RETURNING id, email, name, email_verified, created_at, updated_at`,
+        [email]
+      );
+
+      if (result.rows.length === 0) {
+        throw new Error('User not found');
+      }
+
+      await client.query('COMMIT');
+
+      const dbUser = result.rows[0];
+      const user = this.dbUserToApiUser(dbUser);
+      const accessToken = this.generateToken({
+        sub: dbUser.id,
+        email: dbUser.email,
+        role: 'authenticated',
+      });
+
+      // Get redirect URL from auth config if configured
+      const authConfigService = AuthConfigService.getInstance();
+      const emailAuthConfig = await authConfigService.getEmailConfig();
+
+      return {
+        user,
+        accessToken,
+        redirectTo: emailAuthConfig.verifyEmailRedirectTo || undefined,
+      };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Verify email with magic link token
+   * Verifies the token (without needing email), looks up the email, and updates the account
+   * This is more secure as the email is not exposed in the URL
+   */
+  async verifyEmailWithLinkToken(token: string): Promise<VerifyEmailResponse> {
+    const dbManager = DatabaseManager.getInstance();
+    const pool = dbManager.getPool();
+    const client = await pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      // Verify token and get the associated email
+      const otpService = AuthOTPService.getInstance();
+      const { email } = await otpService.verifyLinkToken(
+        EmailOTPPurpose.VERIFY_EMAIL,
+        token,
+        client
+      );
+
+      // Update account email verification status
+      const result = await client.query(
+        `UPDATE _accounts
+         SET email_verified = true, updated_at = NOW()
+         WHERE email = $1
+         RETURNING id, email, name, email_verified, created_at, updated_at`,
+        [email]
+      );
+
+      if (result.rows.length === 0) {
+        throw new Error('User not found');
+      }
+
+      await client.query('COMMIT');
+
+      const dbUser = result.rows[0];
+      const user = this.dbUserToApiUser(dbUser);
+      const accessToken = this.generateToken({
+        sub: dbUser.id,
+        email: dbUser.email,
+        role: 'authenticated',
+      });
+
+      // Get redirect URL from auth config if configured
+      const authConfigService = AuthConfigService.getInstance();
+      const emailAuthConfig = await authConfigService.getEmailConfig();
+
+      return {
+        user,
+        accessToken,
+        redirectTo: emailAuthConfig.verifyEmailRedirectTo || undefined,
+      };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Send reset password email with numeric OTP code
+   * Creates a 6-digit OTP and sends it via email for manual entry
+   */
+  async sendResetPasswordEmailWithCode(email: string): Promise<void> {
+    // Check if user exists
+    const dbUser = await this.db.prepare('SELECT * FROM _accounts WHERE email = ?').get(email);
+    if (!dbUser) {
+      // Silently succeed to prevent user enumeration
+      logger.info('Password reset requested for non-existent user', { email });
+      return;
+    }
+
+    // Create numeric OTP code using the OTP service
+    const otpService = AuthOTPService.getInstance();
+    const { otp: code } = await otpService.createEmailOTP(
+      email,
+      EmailOTPPurpose.RESET_PASSWORD,
+      EmailOTPType.NUMERIC_CODE
+    );
+
+    // Send email with reset password code
+    const emailService = EmailService.getInstance();
+    await emailService.sendWithTemplate(email, dbUser.name || 'User', 'reset-password-code', {
+      token: code,
+    });
+  }
+
+  /**
+   * Send reset password email with magic link
+   * Creates a long cryptographic token and sends it via email as a clickable link
+   * The link contains only the token (no email) for better privacy and security
+   */
+  async sendResetPasswordEmailWithLink(email: string): Promise<void> {
+    // Check if user exists
+    const dbUser = await this.db.prepare('SELECT * FROM _accounts WHERE email = ?').get(email);
+    if (!dbUser) {
+      // Silently succeed to prevent user enumeration
+      logger.info('Password reset requested for non-existent user', { email });
+      return;
+    }
+
+    // Create long cryptographic token for magic link
+    const otpService = AuthOTPService.getInstance();
+    const { otp: token } = await otpService.createEmailOTP(
+      email,
+      EmailOTPPurpose.RESET_PASSWORD,
+      EmailOTPType.LINK_TOKEN
+    );
+
+    // Build magic link URL using backend API endpoint
+    const linkUrl = `${getApiBaseUrl()}/auth/reset-password?token=${token}`;
+
+    // Send email with magic link
+    const emailService = EmailService.getInstance();
+    await emailService.sendWithTemplate(email, dbUser.name || 'User', 'reset-password-link', {
+      link: linkUrl,
+    });
+  }
+
+  /**
+   * Reset password with numeric code
+   * Verifies the numeric OTP code and updates the password in a single transaction
+   * Note: Does not return access token - user must login again with new password
+   */
+  async resetPasswordWithCode(
+    email: string,
+    newPassword: string,
+    verificationCode: string
+  ): Promise<ResetPasswordResponse> {
+    // Validate password first before verifying OTP
+    // This allows the user to retry with the same OTP if password is invalid
+    const authConfigService = AuthConfigService.getInstance();
+    const emailAuthConfig = await authConfigService.getEmailConfig();
+
+    if (!validatePassword(newPassword, emailAuthConfig)) {
+      throw new AppError(
+        getPasswordRequirementsMessage(emailAuthConfig),
+        400,
+        ERROR_CODES.INVALID_INPUT
+      );
+    }
+
+    const dbManager = DatabaseManager.getInstance();
+    const pool = dbManager.getPool();
+    const client = await pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      // Verify OTP using the OTP service (within the same transaction)
+      const otpService = AuthOTPService.getInstance();
+      await otpService.verifyNumericCode(
+        email,
+        EmailOTPPurpose.RESET_PASSWORD,
+        verificationCode,
+        client
+      );
+
+      // Hash the new password
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+      // Update password in the database
+      const result = await client.query(
+        `UPDATE _accounts
+         SET password = $1, updated_at = NOW()
+         WHERE email = $2
+         RETURNING id`,
+        [hashedPassword, email]
+      );
+
+      if (result.rows.length === 0) {
+        throw new Error('User not found');
+      }
+
+      const userId = result.rows[0].id;
+
+      await client.query('COMMIT');
+
+      logger.info('Password reset successfully with code', { userId });
+
+      return {
+        message: 'Password reset successfully. Please login with your new password.',
+        redirectTo: emailAuthConfig.resetPasswordRedirectTo || undefined,
+      };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Reset password with magic link token
+   * Verifies the token (without needing email), looks up the email, and updates the password
+   * Note: Does not return access token - user must login again with new password
+   */
+  async resetPasswordWithLinkToken(
+    newPassword: string,
+    token: string
+  ): Promise<ResetPasswordResponse> {
+    // Validate password first before verifying token
+    // This allows the user to retry with the same token if password is invalid
+    const authConfigService = AuthConfigService.getInstance();
+    const emailAuthConfig = await authConfigService.getEmailConfig();
+
+    if (!validatePassword(newPassword, emailAuthConfig)) {
+      throw new AppError(
+        getPasswordRequirementsMessage(emailAuthConfig),
+        400,
+        ERROR_CODES.INVALID_INPUT
+      );
+    }
+
+    const dbManager = DatabaseManager.getInstance();
+    const pool = dbManager.getPool();
+    const client = await pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      // Verify token and get the associated email
+      const otpService = AuthOTPService.getInstance();
+      const { email } = await otpService.verifyLinkToken(
+        EmailOTPPurpose.RESET_PASSWORD,
+        token,
+        client
+      );
+
+      // Hash the new password
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+      // Update password in the database
+      const result = await client.query(
+        `UPDATE _accounts
+         SET password = $1, updated_at = NOW()
+         WHERE email = $2
+         RETURNING id`,
+        [hashedPassword, email]
+      );
+
+      if (result.rows.length === 0) {
+        throw new Error('User not found');
+      }
+
+      const userId = result.rows[0].id;
+
+      await client.query('COMMIT');
+
+      logger.info('Password reset successfully with link', { userId });
+
+      return {
+        message: 'Password reset successfully. Please login with your new password.',
+        redirectTo: emailAuthConfig.resetPasswordRedirectTo || undefined,
+      };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
    * Admin login (validates against env variables only)
    */
   adminLogin(email: string, password: string): CreateAdminSessionResponse {
     // Simply validate against environment variables
     if (email !== this.adminEmail || password !== this.adminPassword) {
-      throw new Error('Invalid admin credentials');
+      throw new AppError('Invalid admin credentials', 401, ERROR_CODES.AUTH_UNAUTHORIZED);
     }
 
     // Use a fixed admin ID for the system administrator
@@ -274,7 +708,7 @@ export class AuthService {
       };
     } catch (error) {
       logger.error('Admin token verification failed:', error);
-      throw new Error('Invalid admin credentials');
+      throw new AppError('Invalid admin credentials', 401, ERROR_CODES.AUTH_UNAUTHORIZED);
     }
   }
 

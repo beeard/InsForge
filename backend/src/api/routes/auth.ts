@@ -1,11 +1,13 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { AuthService } from '@/core/auth/auth.js';
+import { AuthConfigService } from '@/core/auth/auth.config.js';
 import { AuditService } from '@/core/logs/audit.js';
 import { AppError } from '@/api/middleware/error.js';
 import { ERROR_CODES } from '@/types/error-constants.js';
 import { successResponse } from '@/utils/response.js';
 import { AuthRequest, verifyAdmin } from '@/api/middleware/auth.js';
 import oauthRouter from './auth.oauth.js';
+import { sendEmailOTPLimiter, verifyOTPLimiter } from '@/api/middleware/rate-limiters.js';
 import {
   userIdSchema,
   createUserRequestSchema,
@@ -13,22 +15,81 @@ import {
   createAdminSessionRequestSchema,
   deleteUsersRequestSchema,
   listUsersRequestSchema,
+  sendVerificationEmailRequestSchema,
+  verifyEmailRequestSchema,
+  updateEmailAuthConfigRequestSchema,
+  sendResetPasswordEmailRequestSchema,
+  resetPasswordRequestSchema,
   type CreateUserResponse,
   type CreateSessionResponse,
+  type VerifyEmailResponse,
+  type ResetPasswordResponse,
   type CreateAdminSessionResponse,
   type GetCurrentSessionResponse,
   type ListUsersResponse,
   type DeleteUsersResponse,
+  type GetEmailAuthConfigResponse,
   exchangeAdminSessionRequestSchema,
 } from '@insforge/shared-schemas';
 import { UserRecord } from '@/types/auth.js';
 
 const router = Router();
 const authService = AuthService.getInstance();
+const authConfigService = AuthConfigService.getInstance();
 const auditService = AuditService.getInstance();
 
 // Mount OAuth routes
 router.use('/oauth', oauthRouter);
+
+// Email Authentication Configuration Routes
+// GET /api/auth/email/config - Get email authentication configuration (admin only)
+router.get(
+  '/email/config',
+  verifyAdmin,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const config: GetEmailAuthConfigResponse = await authConfigService.getEmailConfig();
+      res.json(config);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// PUT /api/auth/email/config - Update email authentication configuration (admin only)
+router.put(
+  '/email/config',
+  verifyAdmin,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const validationResult = updateEmailAuthConfigRequestSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        throw new AppError(
+          validationResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', '),
+          400,
+          ERROR_CODES.INVALID_INPUT
+        );
+      }
+
+      const input = validationResult.data;
+      const config: GetEmailAuthConfigResponse = await authConfigService.updateEmailConfig(input);
+
+      await auditService.log({
+        actor: req.user?.email || 'api-key',
+        action: 'UPDATE_EMAIL_AUTH_CONFIG',
+        module: 'AUTH',
+        details: {
+          updatedFields: Object.keys(input),
+        },
+        ip_address: req.ip,
+      });
+
+      successResponse(res, config);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
 // POST /api/auth/users - Create a new user (registration)
 router.post('/users', async (req: Request, res: Response, next: NextFunction) => {
@@ -382,5 +443,209 @@ router.post('/tokens/anon', verifyAdmin, (_req: Request, res: Response, next: Ne
     next(error);
   }
 });
+
+// POST /api/auth/email/send-verification-code - Send email verification code
+router.post(
+  '/email/send-verification-code',
+  sendEmailOTPLimiter,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const validationResult = sendVerificationEmailRequestSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        throw new AppError(
+          validationResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', '),
+          400,
+          ERROR_CODES.INVALID_INPUT
+        );
+      }
+
+      const { email } = validationResult.data;
+
+      // Note: User enumeration is prevented at service layer
+      // Service returns gracefully (no error) if user not found
+      await authService.sendVerificationEmailWithCode(email);
+
+      // Always return 202 Accepted with generic message
+      res.status(202).json({
+        success: true,
+        message:
+          'If your email is registered, we have sent you a verification code. Please check your inbox.',
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// POST /api/auth/email/send-verification-link - Send email verification magic link
+router.post(
+  '/email/send-verification-link',
+  sendEmailOTPLimiter,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const validationResult = sendVerificationEmailRequestSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        throw new AppError(
+          validationResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', '),
+          400,
+          ERROR_CODES.INVALID_INPUT
+        );
+      }
+
+      const { email } = validationResult.data;
+
+      // Note: User enumeration is prevented at service layer
+      // Service returns gracefully (no error) if user not found
+      await authService.sendVerificationEmailWithLink(email);
+
+      // Always return 202 Accepted with generic message
+      res.status(202).json({
+        success: true,
+        message:
+          'If your email is registered, we have sent you a verification link. Please check your inbox.',
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// POST /api/auth/verify-email - Verify email with OTP
+// If email is provided: uses numeric OTP verification (6-digit code)
+// If email is NOT provided: uses link OTP verification (64-char token)
+router.post(
+  '/verify-email',
+  verifyOTPLimiter,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const validationResult = verifyEmailRequestSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        throw new AppError(
+          validationResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', '),
+          400,
+          ERROR_CODES.INVALID_INPUT
+        );
+      }
+
+      const { email, otp } = validationResult.data;
+
+      let result: VerifyEmailResponse;
+
+      if (email) {
+        // Numeric OTP verification (email + otp where otp is 6-digit code)
+        result = await authService.verifyEmailWithCode(email, otp);
+      } else {
+        // Link OTP verification (otp is 64-char hex token)
+        result = await authService.verifyEmailWithLinkToken(otp);
+      }
+
+      successResponse(res, result); // Return session info with optional redirectTo upon successful verification
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// POST /api/auth/email/send-reset-password-code - Send password reset code
+router.post(
+  '/email/send-reset-password-code',
+  sendEmailOTPLimiter,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const validationResult = sendResetPasswordEmailRequestSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        throw new AppError(
+          validationResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', '),
+          400,
+          ERROR_CODES.INVALID_INPUT
+        );
+      }
+
+      const { email } = validationResult.data;
+
+      // Note: User enumeration is prevented at service layer
+      // Service returns gracefully (no error) if user not found
+      await authService.sendResetPasswordEmailWithCode(email);
+
+      // Always return 202 Accepted with generic message
+      res.status(202).json({
+        success: true,
+        message:
+          'If your email is registered, we have sent you a password reset code. Please check your inbox.',
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// POST /api/auth/email/send-reset-password-link - Send password reset magic link
+router.post(
+  '/email/send-reset-password-link',
+  sendEmailOTPLimiter,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const validationResult = sendResetPasswordEmailRequestSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        throw new AppError(
+          validationResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', '),
+          400,
+          ERROR_CODES.INVALID_INPUT
+        );
+      }
+
+      const { email } = validationResult.data;
+
+      // Note: User enumeration is prevented at service layer
+      // Service returns gracefully (no error) if user not found
+      await authService.sendResetPasswordEmailWithLink(email);
+
+      // Always return 202 Accepted with generic message
+      res.status(202).json({
+        success: true,
+        message:
+          'If your email is registered, we have sent you a password reset link. Please check your inbox.',
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// POST /api/auth/reset-password - Reset password with code or link token
+// If email is provided: uses numeric code verification (resetPasswordWithCode)
+// If email is NOT provided: uses link token verification (resetPasswordWithLinkToken)
+router.post(
+  '/reset-password',
+  verifyOTPLimiter,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const validationResult = resetPasswordRequestSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        throw new AppError(
+          validationResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', '),
+          400,
+          ERROR_CODES.INVALID_INPUT
+        );
+      }
+
+      const { email, newPassword, otp } = validationResult.data;
+
+      let result: ResetPasswordResponse;
+
+      if (email) {
+        // Code-based reset (email + otp where otp is 6-digit code)
+        result = await authService.resetPasswordWithCode(email, newPassword, otp);
+      } else {
+        // Link token-based reset (otp is 64-char hex)
+        result = await authService.resetPasswordWithLinkToken(newPassword, otp);
+      }
+
+      successResponse(res, result); // Return message with optional redirectTo
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
 export default router;

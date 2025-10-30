@@ -7,6 +7,7 @@ import {
   roleSchema,
   userSchema,
   oAuthConfigSchema,
+  emailAuthConfigSchema,
 } from './auth.schema';
 
 // ============================================================================
@@ -63,6 +64,49 @@ export const deleteUsersRequestSchema = z.object({
   userIds: z.array(userIdSchema).min(1, 'At least one user ID is required'),
 });
 
+/**
+ * POST /api/auth/resend-verification-email - Resend verification email
+ */
+export const sendVerificationEmailRequestSchema = z.object({
+  email: emailSchema,
+});
+
+/**
+ * POST /api/auth/verify-email - Verify email with OTP
+ * - With email: numeric OTP verification (email + otp required, otp is 6-digit code)
+ * - Without email: link OTP verification (otp required, otp is 64-char hex token)
+ */
+export const verifyEmailRequestSchema = z
+  .object({
+    email: emailSchema.optional(),
+    otp: z.string().min(1),
+  })
+  .refine((data) => data.email || data.otp, {
+    message: 'Either email or otp must be provided',
+  });
+
+/**
+ * POST /api/auth/send-reset-password-email - Send reset password email
+ */
+export const sendResetPasswordEmailRequestSchema = z.object({
+  email: emailSchema,
+});
+
+/**
+ * POST /api/auth/reset-password - Reset password with OTP
+ * - With email: numeric OTP reset (email + otp + newPassword required, otp is 6-digit code)
+ * - Without email: link OTP reset (otp + newPassword required, otp is 64-char hex token)
+ */
+export const resetPasswordRequestSchema = z
+  .object({
+    email: emailSchema.optional(),
+    newPassword: passwordSchema,
+    otp: z.string().min(1),
+  })
+  .refine((data) => data.email || data.otp, {
+    message: 'Either email or otp must be provided',
+  });
+
 // ============================================================================
 // Response schemas
 // ============================================================================
@@ -71,14 +115,37 @@ export const deleteUsersRequestSchema = z.object({
  * Response for POST /api/auth/users
  */
 export const createUserResponseSchema = z.object({
-  user: userSchema,
-  accessToken: z.string(),
+  user: userSchema.optional(),
+  accessToken: z.string().nullable(),
+  requiresEmailVerification: z.boolean().optional(),
 });
 
 /**
  * Response for POST /api/auth/sessions
  */
-export const createSessionResponseSchema = createUserResponseSchema;
+export const createSessionResponseSchema = z.object({
+  user: userSchema,
+  accessToken: z.string(),
+});
+
+/**
+ * Response for POST /api/auth/verify-email
+ * Includes user and access token, plus optional redirectTo URL for frontend navigation
+ */
+export const verifyEmailResponseSchema = z.object({
+  user: userSchema,
+  accessToken: z.string(),
+  redirectTo: z.string().url().optional(),
+});
+
+/**
+ * Response for POST /api/auth/reset-password
+ * Includes success message and optional redirectTo URL for frontend navigation
+ */
+export const resetPasswordResponseSchema = z.object({
+  message: z.string(),
+  redirectTo: z.string().url().optional(),
+});
 
 /**
  * Response for POST /api/auth/admin/sessions
@@ -164,6 +231,24 @@ export const listOAuthConfigsResponseSchema = z.object({
 });
 
 // ============================================================================
+// Email Authentication Configuration schemas
+// ============================================================================
+
+/**
+ * PUT /api/auth/email/config - Update Email authentication configuration
+ */
+export const updateEmailAuthConfigRequestSchema = emailAuthConfigSchema.omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+/**
+ * Response for GET /api/auth/email/config
+ */
+export const getEmailAuthConfigResponseSchema = emailAuthConfigSchema;
+
+// ============================================================================
 // Error response schema
 // ============================================================================
 
@@ -189,15 +274,23 @@ export type ListUsersRequest = z.infer<typeof listUsersRequestSchema>;
 export type DeleteUsersRequest = z.infer<typeof deleteUsersRequestSchema>;
 export type CreateOAuthConfigRequest = z.infer<typeof createOAuthConfigRequestSchema>;
 export type UpdateOAuthConfigRequest = z.infer<typeof updateOAuthConfigRequestSchema>;
+export type UpdateEmailAuthConfigRequest = z.infer<typeof updateEmailAuthConfigRequestSchema>;
+export type SendVerificationEmailRequest = z.infer<typeof sendVerificationEmailRequestSchema>;
+export type VerifyEmailRequest = z.infer<typeof verifyEmailRequestSchema>;
+export type SendResetPasswordEmailRequest = z.infer<typeof sendResetPasswordEmailRequestSchema>;
+export type ResetPasswordRequest = z.infer<typeof resetPasswordRequestSchema>;
 
 // Response types for type-safe responses
 export type CreateUserResponse = z.infer<typeof createUserResponseSchema>;
 export type CreateSessionResponse = z.infer<typeof createSessionResponseSchema>;
+export type VerifyEmailResponse = z.infer<typeof verifyEmailResponseSchema>;
+export type ResetPasswordResponse = z.infer<typeof resetPasswordResponseSchema>;
 export type CreateAdminSessionResponse = z.infer<typeof createAdminSessionResponseSchema>;
 export type GetCurrentSessionResponse = z.infer<typeof getCurrentSessionResponseSchema>;
 export type ListUsersResponse = z.infer<typeof listUsersResponseSchema>;
 export type DeleteUsersResponse = z.infer<typeof deleteUsersResponseSchema>;
 export type GetOauthUrlResponse = z.infer<typeof getOauthUrlResponseSchema>;
 export type ListOAuthConfigsResponse = z.infer<typeof listOAuthConfigsResponseSchema>;
+export type GetEmailAuthConfigResponse = z.infer<typeof getEmailAuthConfigResponseSchema>;
 
 export type AuthErrorResponse = z.infer<typeof authErrorResponseSchema>;

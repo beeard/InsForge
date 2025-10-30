@@ -55,7 +55,7 @@ export function AddOAuthDialog({
       <DialogContent className="max-w-[600px] p-0 gap-0 dark:bg-neutral-800">
         <DialogHeader className="pl-6 pr-4 py-3 border-b border-zinc-200 dark:border-neutral-700">
           <DialogTitle className="text-lg font-semibold text-zinc-950 dark:text-white">
-            Add Authentication
+            Add Provider
           </DialogTitle>
         </DialogHeader>
         <div className="p-6">
@@ -100,7 +100,7 @@ export function AddOAuthDialog({
             onClick={handleConfirm}
             disabled={!hasSelection}
           >
-            Add OAuth
+            Add Provider
           </Button>
         </DialogFooter>
       </DialogContent>
