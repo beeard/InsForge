@@ -565,7 +565,7 @@ paths:
 
         Successfully verified users will receive a session token.
 
-        The email verification link sent to users always points to the backend API endpoint (`{API_URL}/auth/verify-email?token=...`).
+        The email verification link sent to users always points to the backend API endpoint (`{BASE_URL}/auth/verify-email?token=...`).
         If `verifyEmailRedirectTo` is configured, the backend will redirect to that URL after successful verification.
         Otherwise, a default success page is displayed.
       tags:
@@ -681,39 +681,6 @@ paths:
           description: Invalid request
 
   /api/auth/reset-password:
-    get:
-      summary: Display password reset form or redirect
-      description: |
-        When a user clicks the password reset link in their email, they are directed to this endpoint with a token in the query string.
-
-        If `resetPasswordRedirectTo` is configured in the email auth config, the user is redirected to that URL with the token as a query parameter.
-        Otherwise, a default password reset form is displayed.
-      tags:
-        - Client
-      parameters:
-        - name: token
-          in: query
-          required: true
-          schema:
-            type: string
-          description: 64-character hex token from the magic link
-      responses:
-        '200':
-          description: Password reset form displayed (if no redirect configured)
-          content:
-            text/html:
-              schema:
-                type: string
-        '302':
-          description: Redirect to custom password reset page (if redirect configured)
-          headers:
-            Location:
-              schema:
-                type: string
-                format: uri
-        '400':
-          description: Token missing or invalid
-
     post:
       summary: Reset password with code or link token
       description: |
@@ -722,8 +689,6 @@ paths:
         - Magic link verification: Provide `newPassword` and `otp` (64-character token from link), omit `email`
 
         The password reset link sent to users always points to the backend API endpoint (`{BASE_URL}/auth/reset-password?token=...`).
-        If `resetPasswordRedirectTo` is configured, users are redirected to a custom page to enter their new password.
-        Otherwise, a default form is displayed. Both approaches POST to this endpoint.
       tags:
         - Client
       requestBody:
