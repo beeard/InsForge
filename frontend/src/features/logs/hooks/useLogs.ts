@@ -82,13 +82,22 @@ export function useLogs(source: string) {
 
   // Get severity from log
   const getSeverity = useCallback((log: LogSchema): string => {
-    const message = log.eventMessage.toLowerCase();
-    if (message.includes('error') || log.body?.error) {
+    // Parse from log.body.metadata.level set by Vector
+    const metadata = log.body?.metadata as { level?: string } | undefined;
+    const level = metadata?.level;
+    if (!level) {
+      return 'informational';
+    }
+
+    const levelLower = level.toLowerCase();
+
+    if (levelLower === 'error') {
       return 'error';
     }
-    if (message.includes('warning') || message.includes('warn')) {
+    if (levelLower === 'warning' || levelLower === 'warn') {
       return 'warning';
     }
+    // 'info', 'log', and anything else defaults to informational
     return 'informational';
   }, []);
 
