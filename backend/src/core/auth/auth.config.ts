@@ -43,8 +43,8 @@ export class AuthConfigService {
           require_lowercase as "requireLowercase",
           require_uppercase as "requireUppercase",
           require_special_char as "requireSpecialChar",
-          verify_email_url as "verifyEmailUrl",
-          reset_password_url as "resetPasswordUrl",
+          verify_email_redirect_to as "verifyEmailRedirectTo",
+          reset_password_redirect_to as "resetPasswordRedirectTo",
           created_at as "createdAt",
           updated_at as "updatedAt"
          FROM _auth_configs
@@ -90,8 +90,8 @@ export class AuthConfigService {
           require_lowercase,
           require_uppercase,
           require_special_char,
-          verify_email_url,
-          reset_password_url
+          verify_email_redirect_to,
+          reset_password_redirect_to
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         ON CONFLICT DO NOTHING
         RETURNING
@@ -102,8 +102,8 @@ export class AuthConfigService {
           require_lowercase as "requireLowercase",
           require_uppercase as "requireUppercase",
           require_special_char as "requireSpecialChar",
-          verify_email_url as "verifyEmailUrl",
-          reset_password_url as "resetPasswordUrl",
+          verify_email_redirect_to as "verifyEmailRedirectTo",
+          reset_password_redirect_to as "resetPasswordRedirectTo",
           created_at as "createdAt",
           updated_at as "updatedAt"`,
         [false, 6, false, false, false, false, null, null]
@@ -124,8 +124,8 @@ export class AuthConfigService {
             require_lowercase as "requireLowercase",
             require_uppercase as "requireUppercase",
             require_special_char as "requireSpecialChar",
-            verify_email_url as "verifyEmailUrl",
-            reset_password_url as "resetPasswordUrl",
+            verify_email_redirect_to as "verifyEmailRedirectTo",
+            reset_password_redirect_to as "resetPasswordRedirectTo",
             created_at as "createdAt",
             updated_at as "updatedAt"
            FROM _auth_configs
@@ -202,14 +202,14 @@ export class AuthConfigService {
         values.push(input.requireSpecialChar);
       }
 
-      if (input.verifyEmailUrl !== undefined) {
-        updates.push(`verify_email_url = $${paramCount++}`);
-        values.push(input.verifyEmailUrl);
+      if (input.verifyEmailRedirectTo !== undefined) {
+        updates.push(`verify_email_redirect_to = $${paramCount++}`);
+        values.push(input.verifyEmailRedirectTo);
       }
 
-      if (input.resetPasswordUrl !== undefined) {
-        updates.push(`reset_password_url = $${paramCount++}`);
-        values.push(input.resetPasswordUrl);
+      if (input.resetPasswordRedirectTo !== undefined) {
+        updates.push(`reset_password_redirect_to = $${paramCount++}`);
+        values.push(input.resetPasswordRedirectTo);
       }
 
       if (!updates.length) {
@@ -232,8 +232,8 @@ export class AuthConfigService {
            require_lowercase as "requireLowercase",
            require_uppercase as "requireUppercase",
            require_special_char as "requireSpecialChar",
-           verify_email_url as "verifyEmailUrl",
-           reset_password_url as "resetPasswordUrl",
+           verify_email_redirect_to as "verifyEmailRedirectTo",
+           reset_password_redirect_to as "resetPasswordRedirectTo",
            created_at as "createdAt",
            updated_at as "updatedAt"`,
         values

@@ -91,11 +91,11 @@ export const emailAuthConfigSchema = z.object({
   requireLowercase: z.boolean(),
   requireUppercase: z.boolean(),
   requireSpecialChar: z.boolean(),
-  verifyEmailUrl: z
+  verifyEmailRedirectTo: z
     .union([z.string().url(), z.literal(''), z.null()])
     .optional()
     .transform((val) => (val === '' ? null : val)),
-  resetPasswordUrl: z
+  resetPasswordRedirectTo: z
     .union([z.string().url(), z.literal(''), z.null()])
     .optional()
     .transform((val) => (val === '' ? null : val)),

@@ -15,13 +15,15 @@ import {
   createAdminSessionRequestSchema,
   deleteUsersRequestSchema,
   listUsersRequestSchema,
-  resendVerificationEmailRequestSchema,
+  sendVerificationEmailRequestSchema,
   verifyEmailRequestSchema,
   updateEmailAuthConfigRequestSchema,
   sendResetPasswordEmailRequestSchema,
   resetPasswordRequestSchema,
   type CreateUserResponse,
   type CreateSessionResponse,
+  type VerifyEmailResponse,
+  type ResetPasswordResponse,
   type CreateAdminSessionResponse,
   type GetCurrentSessionResponse,
   type ListUsersResponse,
@@ -448,7 +450,7 @@ router.post(
   sendEmailOTPLimiter,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const validationResult = resendVerificationEmailRequestSchema.safeParse(req.body);
+      const validationResult = sendVerificationEmailRequestSchema.safeParse(req.body);
       if (!validationResult.success) {
         throw new AppError(
           validationResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', '),
@@ -481,7 +483,7 @@ router.post(
   sendEmailOTPLimiter,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const validationResult = resendVerificationEmailRequestSchema.safeParse(req.body);
+      const validationResult = sendVerificationEmailRequestSchema.safeParse(req.body);
       if (!validationResult.success) {
         throw new AppError(
           validationResult.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', '),
@@ -527,7 +529,7 @@ router.post(
 
       const { email, otp } = validationResult.data;
 
-      let result: CreateSessionResponse;
+      let result: VerifyEmailResponse;
 
       if (email) {
         // Numeric OTP verification (email + otp where otp is 6-digit code)
@@ -537,7 +539,7 @@ router.post(
         result = await authService.verifyEmailWithLinkToken(otp);
       }
 
-      successResponse(res, result); // Return session info upon successful verification
+      successResponse(res, result); // Return session info with optional redirectTo upon successful verification
     } catch (error) {
       next(error);
     }
@@ -629,17 +631,17 @@ router.post(
 
       const { email, newPassword, otp } = validationResult.data;
 
+      let result: ResetPasswordResponse;
+
       if (email) {
         // Code-based reset (email + otp where otp is 6-digit code)
-        await authService.resetPasswordWithCode(email, newPassword, otp);
+        result = await authService.resetPasswordWithCode(email, newPassword, otp);
       } else {
         // Link token-based reset (otp is 64-char hex)
-        await authService.resetPasswordWithLinkToken(newPassword, otp);
+        result = await authService.resetPasswordWithLinkToken(newPassword, otp);
       }
 
-      successResponse(res, {
-        message: 'Password reset successfully. Please login with your new password.',
-      });
+      successResponse(res, result); // Return message with optional redirectTo
     } catch (error) {
       next(error);
     }

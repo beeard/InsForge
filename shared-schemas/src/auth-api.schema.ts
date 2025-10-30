@@ -67,7 +67,7 @@ export const deleteUsersRequestSchema = z.object({
 /**
  * POST /api/auth/resend-verification-email - Resend verification email
  */
-export const resendVerificationEmailRequestSchema = z.object({
+export const sendVerificationEmailRequestSchema = z.object({
   email: emailSchema,
 });
 
@@ -123,7 +123,29 @@ export const createUserResponseSchema = z.object({
 /**
  * Response for POST /api/auth/sessions
  */
-export const createSessionResponseSchema = createUserResponseSchema;
+export const createSessionResponseSchema = z.object({
+  user: userSchema,
+  accessToken: z.string(),
+});
+
+/**
+ * Response for POST /api/auth/verify-email
+ * Includes user and access token, plus optional redirectTo URL for frontend navigation
+ */
+export const verifyEmailResponseSchema = z.object({
+  user: userSchema,
+  accessToken: z.string(),
+  redirectTo: z.string().url().optional(),
+});
+
+/**
+ * Response for POST /api/auth/reset-password
+ * Includes success message and optional redirectTo URL for frontend navigation
+ */
+export const resetPasswordResponseSchema = z.object({
+  message: z.string(),
+  redirectTo: z.string().url().optional(),
+});
 
 /**
  * Response for POST /api/auth/admin/sessions
@@ -253,7 +275,7 @@ export type DeleteUsersRequest = z.infer<typeof deleteUsersRequestSchema>;
 export type CreateOAuthConfigRequest = z.infer<typeof createOAuthConfigRequestSchema>;
 export type UpdateOAuthConfigRequest = z.infer<typeof updateOAuthConfigRequestSchema>;
 export type UpdateEmailAuthConfigRequest = z.infer<typeof updateEmailAuthConfigRequestSchema>;
-export type ResendVerificationEmailRequest = z.infer<typeof resendVerificationEmailRequestSchema>;
+export type SendVerificationEmailRequest = z.infer<typeof sendVerificationEmailRequestSchema>;
 export type VerifyEmailRequest = z.infer<typeof verifyEmailRequestSchema>;
 export type SendResetPasswordEmailRequest = z.infer<typeof sendResetPasswordEmailRequestSchema>;
 export type ResetPasswordRequest = z.infer<typeof resetPasswordRequestSchema>;
@@ -261,6 +283,8 @@ export type ResetPasswordRequest = z.infer<typeof resetPasswordRequestSchema>;
 // Response types for type-safe responses
 export type CreateUserResponse = z.infer<typeof createUserResponseSchema>;
 export type CreateSessionResponse = z.infer<typeof createSessionResponseSchema>;
+export type VerifyEmailResponse = z.infer<typeof verifyEmailResponseSchema>;
+export type ResetPasswordResponse = z.infer<typeof resetPasswordResponseSchema>;
 export type CreateAdminSessionResponse = z.infer<typeof createAdminSessionResponseSchema>;
 export type GetCurrentSessionResponse = z.infer<typeof getCurrentSessionResponseSchema>;
 export type ListUsersResponse = z.infer<typeof listUsersResponseSchema>;

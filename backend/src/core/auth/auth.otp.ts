@@ -28,7 +28,7 @@ export enum EmailOTPType {
  */
 export interface CreateOTPResult {
   success: boolean;
-  code: string;
+  otp: string;
   expiresAt: Date;
 }
 
@@ -97,33 +97,33 @@ export class AuthOTPService {
    *
    * @param email - The email address for the token
    * @param purpose - The purpose of the token (e.g., 'VERIFY_EMAIL', 'RESET_PASSWORD')
-   * @param tokenType - The type of token to generate ('NUMERIC_CODE' or 'LINK_TOKEN')
+   * @param otpType - The type of token to generate ('NUMERIC_CODE' or 'LINK_TOKEN')
    * @returns Promise with creation result including the token and expiry time
    */
   async createEmailOTP(
     email: string,
     purpose: EmailOTPPurpose,
-    tokenType: EmailOTPType = EmailOTPType.NUMERIC_CODE
+    otpType: EmailOTPType = EmailOTPType.NUMERIC_CODE
   ): Promise<CreateOTPResult> {
     const client = await this.getPool().connect();
     try {
       // Generate token based on type
-      let token: string;
+      let otp: string;
       let expiresAt: Date;
-      let tokenHash: string;
+      let otpHash: string;
 
-      if (tokenType === EmailOTPType.NUMERIC_CODE) {
+      if (otpType === EmailOTPType.NUMERIC_CODE) {
         // Generate 6-digit numeric code for manual entry
-        token = generateNumericCode(this.DIGIT_CODE_LENGTH);
+        otp = generateNumericCode(this.DIGIT_CODE_LENGTH);
         expiresAt = new Date(Date.now() + this.DIGIT_CODE_EXPIRY_MINUTES * 60 * 1000);
         // Use bcrypt for low-entropy codes (defense against brute force)
-        tokenHash = await bcrypt.hash(token, this.BCRYPT_SALT_ROUNDS);
+        otpHash = await bcrypt.hash(otp, this.BCRYPT_SALT_ROUNDS);
       } else {
         // Generate cryptographically secure token for magic links
-        token = generateSecureToken(this.LINK_TOKEN_BYTES);
+        otp = generateSecureToken(this.LINK_TOKEN_BYTES);
         expiresAt = new Date(Date.now() + this.LINK_TOKEN_EXPIRY_HOURS * 60 * 60 * 1000);
         // Use SHA-256 for high-entropy tokens (enables direct lookup)
-        tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+        otpHash = crypto.createHash('sha256').update(otp).digest('hex');
       }
 
       // Upsert token record - insert or update if email+purpose combination already exists
@@ -138,22 +138,22 @@ export class AuthOTPService {
            consumed_at = NULL,
            attempts_count = 0,
            updated_at = NOW()`,
-        [email, purpose, tokenHash, expiresAt]
+        [email, purpose, otpHash, expiresAt]
       );
 
       logger.info('Email verification token created successfully', {
         purpose,
-        tokenType,
+        otpType,
         expiresAt: expiresAt.toISOString(),
       });
 
       return {
         success: true,
-        code: token,
+        otp,
         expiresAt,
       };
     } catch (error) {
-      logger.error('Failed to create email verification token', { error, purpose, tokenType });
+      logger.error('Failed to create email verification token', { error, purpose, otpType });
       throw new AppError('Failed to create verification token', 500, ERROR_CODES.INTERNAL_ERROR);
     } finally {
       client.release();

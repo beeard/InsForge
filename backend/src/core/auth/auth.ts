@@ -14,6 +14,8 @@ import type {
   UserSchema,
   CreateUserResponse,
   CreateSessionResponse,
+  VerifyEmailResponse,
+  ResetPasswordResponse,
   CreateAdminSessionResponse,
   TokenPayloadSchema,
   AuthMetadataSchema,
@@ -277,7 +279,7 @@ export class AuthService {
 
     // Create numeric OTP code using the OTP service
     const otpService = AuthOTPService.getInstance();
-    const { code } = await otpService.createEmailOTP(
+    const { otp: code } = await otpService.createEmailOTP(
       email,
       EmailOTPPurpose.VERIFY_EMAIL,
       EmailOTPType.NUMERIC_CODE
@@ -306,19 +308,14 @@ export class AuthService {
 
     // Create long cryptographic token for magic link
     const otpService = AuthOTPService.getInstance();
-    const { code: token } = await otpService.createEmailOTP(
+    const { otp: token } = await otpService.createEmailOTP(
       email,
       EmailOTPPurpose.VERIFY_EMAIL,
       EmailOTPType.LINK_TOKEN
     );
 
-    // Get auth config to check for custom verify email URL
-    const authConfigService = AuthConfigService.getInstance();
-    const emailAuthConfig = await authConfigService.getEmailConfig();
-
-    // Build magic link URL (use custom URL if configured, otherwise default to built-in page)
-    const baseUrl = emailAuthConfig.verifyEmailUrl || `${getApiBaseUrl()}/auth/verify-email`;
-    const linkUrl = `${baseUrl}?token=${token}`;
+    // Build magic link URL using backend API endpoint
+    const linkUrl = `${getApiBaseUrl()}/auth/verify-email?token=${token}`;
 
     // Send email with magic link
     const emailService = EmailService.getInstance();
@@ -331,10 +328,7 @@ export class AuthService {
    * Verify email with numeric code
    * Verifies the email OTP code and updates the account in a single transaction
    */
-  async verifyEmailWithCode(
-    email: string,
-    verificationCode: string
-  ): Promise<CreateSessionResponse> {
+  async verifyEmailWithCode(email: string, verificationCode: string): Promise<VerifyEmailResponse> {
     const dbManager = DatabaseManager.getInstance();
     const pool = dbManager.getPool();
     const client = await pool.connect();
@@ -374,7 +368,15 @@ export class AuthService {
         role: 'authenticated',
       });
 
-      return { user, accessToken };
+      // Get redirect URL from auth config if configured
+      const authConfigService = AuthConfigService.getInstance();
+      const emailAuthConfig = await authConfigService.getEmailConfig();
+
+      return {
+        user,
+        accessToken,
+        redirectTo: emailAuthConfig.verifyEmailRedirectTo || undefined,
+      };
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
@@ -388,7 +390,7 @@ export class AuthService {
    * Verifies the token (without needing email), looks up the email, and updates the account
    * This is more secure as the email is not exposed in the URL
    */
-  async verifyEmailWithLinkToken(token: string): Promise<CreateSessionResponse> {
+  async verifyEmailWithLinkToken(token: string): Promise<VerifyEmailResponse> {
     const dbManager = DatabaseManager.getInstance();
     const pool = dbManager.getPool();
     const client = await pool.connect();
@@ -427,7 +429,15 @@ export class AuthService {
         role: 'authenticated',
       });
 
-      return { user, accessToken };
+      // Get redirect URL from auth config if configured
+      const authConfigService = AuthConfigService.getInstance();
+      const emailAuthConfig = await authConfigService.getEmailConfig();
+
+      return {
+        user,
+        accessToken,
+        redirectTo: emailAuthConfig.verifyEmailRedirectTo || undefined,
+      };
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
@@ -451,7 +461,7 @@ export class AuthService {
 
     // Create numeric OTP code using the OTP service
     const otpService = AuthOTPService.getInstance();
-    const { code } = await otpService.createEmailOTP(
+    const { otp: code } = await otpService.createEmailOTP(
       email,
       EmailOTPPurpose.RESET_PASSWORD,
       EmailOTPType.NUMERIC_CODE
@@ -480,19 +490,14 @@ export class AuthService {
 
     // Create long cryptographic token for magic link
     const otpService = AuthOTPService.getInstance();
-    const { code: token } = await otpService.createEmailOTP(
+    const { otp: token } = await otpService.createEmailOTP(
       email,
       EmailOTPPurpose.RESET_PASSWORD,
       EmailOTPType.LINK_TOKEN
     );
 
-    // Get auth config to check for custom reset password URL
-    const authConfigService = AuthConfigService.getInstance();
-    const emailAuthConfig = await authConfigService.getEmailConfig();
-
-    // Build magic link URL (use custom URL if configured, otherwise default to built-in page)
-    const baseUrl = emailAuthConfig.resetPasswordUrl || `${getApiBaseUrl()}/auth/reset-password`;
-    const linkUrl = `${baseUrl}?token=${token}`;
+    // Build magic link URL using backend API endpoint
+    const linkUrl = `${getApiBaseUrl()}/auth/reset-password?token=${token}`;
 
     // Send email with magic link
     const emailService = EmailService.getInstance();
@@ -510,7 +515,7 @@ export class AuthService {
     email: string,
     newPassword: string,
     verificationCode: string
-  ): Promise<void> {
+  ): Promise<ResetPasswordResponse> {
     // Validate password first before verifying OTP
     // This allows the user to retry with the same OTP if password is invalid
     const authConfigService = AuthConfigService.getInstance();
@@ -561,6 +566,11 @@ export class AuthService {
       await client.query('COMMIT');
 
       logger.info('Password reset successfully with code', { userId });
+
+      return {
+        message: 'Password reset successfully. Please login with your new password.',
+        redirectTo: emailAuthConfig.resetPasswordRedirectTo || undefined,
+      };
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
@@ -574,7 +584,10 @@ export class AuthService {
    * Verifies the token (without needing email), looks up the email, and updates the password
    * Note: Does not return access token - user must login again with new password
    */
-  async resetPasswordWithLinkToken(newPassword: string, token: string): Promise<void> {
+  async resetPasswordWithLinkToken(
+    newPassword: string,
+    token: string
+  ): Promise<ResetPasswordResponse> {
     // Validate password first before verifying token
     // This allows the user to retry with the same token if password is invalid
     const authConfigService = AuthConfigService.getInstance();
@@ -624,6 +637,11 @@ export class AuthService {
       await client.query('COMMIT');
 
       logger.info('Password reset successfully with link', { userId });
+
+      return {
+        message: 'Password reset successfully. Please login with your new password.',
+        redirectTo: emailAuthConfig.resetPasswordRedirectTo || undefined,
+      };
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;

@@ -43,8 +43,8 @@ CREATE TABLE IF NOT EXISTS _auth_configs (
   require_lowercase BOOLEAN DEFAULT FALSE NOT NULL,
   require_uppercase BOOLEAN DEFAULT FALSE NOT NULL,
   require_special_char BOOLEAN DEFAULT FALSE NOT NULL,
-  verify_email_url TEXT, -- Custom URL for email verification page (defaults to built-in page if NULL)
-  reset_password_url TEXT, -- Custom URL for password reset page (defaults to built-in page if NULL)
+  verify_email_redirect_to TEXT, -- Custom URL to redirect after successful email verification (defaults to no redirect if NULL)
+  reset_password_redirect_to TEXT, -- Custom URL to redirect after successful password reset (defaults to no redirect if NULL)
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -67,8 +67,8 @@ INSERT INTO _auth_configs (
   require_lowercase,
   require_uppercase,
   require_special_char,
-  verify_email_url,
-  reset_password_url
+  verify_email_redirect_to,
+  reset_password_redirect_to
 ) VALUES (
   FALSE,  -- require_email_verification
   6,      -- password_min_length
@@ -76,6 +76,6 @@ INSERT INTO _auth_configs (
   FALSE,  -- require_lowercase
   FALSE,  -- require_uppercase
   FALSE,  -- require_special_char
-  NULL,   -- verify_email_url (NULL = use built-in page)
-  NULL    -- reset_password_url (NULL = use built-in page)
+  NULL,   -- verify_email_redirect_to (NULL = no redirect after verification)
+  NULL    -- reset_password_redirect_to (NULL = no redirect after reset)
 ) ON CONFLICT DO NOTHING;

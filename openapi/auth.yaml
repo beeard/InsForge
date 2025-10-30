@@ -38,14 +38,14 @@ paths:
                     type: boolean
                   requireSpecialChar:
                     type: boolean
-                  verifyEmailUrl:
+                  verifyEmailRedirectTo:
                     type: string
                     nullable: true
-                    description: Custom URL for email verification (if not set, uses default built-in page)
-                  resetPasswordUrl:
+                    description: URL to redirect users after successful email verification (if not set, shows default success page)
+                  resetPasswordRedirectTo:
                     type: string
                     nullable: true
-                    description: Custom URL for password reset (if not set, uses default built-in page)
+                    description: URL to redirect users after successful password reset (if not set, shows default success page)
                   createdAt:
                     type: string
                     format: date-time
@@ -85,14 +85,14 @@ paths:
                   type: boolean
                 requireSpecialChar:
                   type: boolean
-                verifyEmailUrl:
+                verifyEmailRedirectTo:
                   type: string
                   nullable: true
-                  description: Custom URL for email verification (if not set, uses default built-in page)
-                resetPasswordUrl:
+                  description: URL to redirect users after successful email verification (if not set, shows default success page)
+                resetPasswordRedirectTo:
                   type: string
                   nullable: true
-                  description: Custom URL for password reset (if not set, uses default built-in page)
+                  description: URL to redirect users after successful password reset (if not set, shows default success page)
       responses:
         '200':
           description: Configuration updated successfully
@@ -118,14 +118,14 @@ paths:
                     type: boolean
                   requireSpecialChar:
                     type: boolean
-                  verifyEmailUrl:
+                  verifyEmailRedirectTo:
                     type: string
                     nullable: true
-                    description: Custom URL for email verification (if not set, uses default built-in page)
-                  resetPasswordUrl:
+                    description: URL to redirect users after successful email verification (if not set, shows default success page)
+                  resetPasswordRedirectTo:
                     type: string
                     nullable: true
-                    description: Custom URL for password reset (if not set, uses default built-in page)
+                    description: URL to redirect users after successful password reset (if not set, shows default success page)
                   createdAt:
                     type: string
                     format: date-time
@@ -565,7 +565,9 @@ paths:
 
         Successfully verified users will receive a session token.
 
-        Note: The magic link URL can be customized via `verifyEmailUrl` in the email auth config. If not set, the default built-in verification page is used.
+        The email verification link sent to users always points to the backend API endpoint (`{API_URL}/auth/verify-email?token=...`).
+        If `verifyEmailRedirectTo` is configured, the backend will redirect to that URL after successful verification.
+        Otherwise, a default success page is displayed.
       tags:
         - Client
       requestBody:
@@ -599,6 +601,10 @@ paths:
                   accessToken:
                     type: string
                     description: JWT authentication token
+                  redirectTo:
+                    type: string
+                    format: uri
+                    description: Optional URL to redirect user after verification (only present if configured)
         '400':
           description: Invalid verification code or token
         '401':
@@ -675,14 +681,49 @@ paths:
           description: Invalid request
 
   /api/auth/reset-password:
+    get:
+      summary: Display password reset form or redirect
+      description: |
+        When a user clicks the password reset link in their email, they are directed to this endpoint with a token in the query string.
+
+        If `resetPasswordRedirectTo` is configured in the email auth config, the user is redirected to that URL with the token as a query parameter.
+        Otherwise, a default password reset form is displayed.
+      tags:
+        - Client
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+          description: 64-character hex token from the magic link
+      responses:
+        '200':
+          description: Password reset form displayed (if no redirect configured)
+          content:
+            text/html:
+              schema:
+                type: string
+        '302':
+          description: Redirect to custom password reset page (if redirect configured)
+          headers:
+            Location:
+              schema:
+                type: string
+                format: uri
+        '400':
+          description: Token missing or invalid
+
     post:
-      summary: Reset password with code or link
+      summary: Reset password with code or link token
       description: |
         Reset user password using either:
         - Numeric code verification: Provide `email`, `newPassword`, and `otp` (6-digit code)
         - Magic link verification: Provide `newPassword` and `otp` (64-character token from link), omit `email`
 
-        Note: The magic link URL can be customized via `resetPasswordUrl` in the email auth config. If not set, the default built-in reset password page is used.
+        The password reset link sent to users always points to the backend API endpoint (`{BASE_URL}/auth/reset-password?token=...`).
+        If `resetPasswordRedirectTo` is configured, users are redirected to a custom page to enter their new password.
+        Otherwise, a default form is displayed. Both approaches POST to this endpoint.
       tags:
         - Client
       requestBody:
@@ -719,6 +760,10 @@ paths:
                   message:
                     type: string
                     example: "Password reset successfully. Please login with your new password."
+                  redirectTo:
+                    type: string
+                    format: uri
+                    description: Optional URL to redirect user after password reset (only present if configured)
         '400':
           description: Invalid request or password requirements not met
         '401':
