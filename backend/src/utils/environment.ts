@@ -4,10 +4,19 @@
 
 /**
  * Check if the application is running in a cloud environment
- * Currently checks for AWS instance profile, but can be extended for other cloud providers
+ * Checks for cloud-specific environment variables (Dokploy, Render, Railway, etc.)
  */
 export function isCloudEnvironment(): boolean {
-  return !!(process.env.AWS_INSTANCE_PROFILE_NAME && process.env.AWS_INSTANCE_PROFILE_NAME.trim());
+  // Check for generic cloud indicators
+  return !!(
+    process.env.CLOUD_ENV === 'true' ||
+    process.env.DOKPLOY_DEPLOYMENT === 'true' ||
+    process.env.RENDER === 'true' ||
+    process.env.RAILWAY_ENVIRONMENT ||
+    process.env.FLY_APP_NAME ||
+    process.env.VERCEL ||
+    process.env.NETLIFY
+  );
 }
 
 /**

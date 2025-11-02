@@ -451,14 +451,15 @@ export class StorageService {
   private backend: StorageBackend;
 
   private constructor() {
-    const s3Bucket = process.env.AWS_S3_BUCKET;
+    // Support both STORAGE_BUCKET (generic) and AWS_S3_BUCKET (backward compatibility)
+    const s3Bucket = process.env.STORAGE_BUCKET || process.env.AWS_S3_BUCKET;
     const appKey = process.env.APP_KEY || 'local';
 
-    if (s3Bucket) {
-      // Use S3 backend
-      this.backend = new S3StorageBackend(s3Bucket, appKey, process.env.AWS_REGION || 'us-east-2');
+    if (s3Bucket && process.env.AWS_REGION) {
+      // Use S3 backend only if both bucket and region are configured
+      this.backend = new S3StorageBackend(s3Bucket, appKey, process.env.AWS_REGION);
     } else {
-      // Use local filesystem backend
+      // Use local filesystem backend (default for Hetzner/Dokploy)
       const baseDir = process.env.STORAGE_DIR || path.resolve(process.cwd(), 'insforge-storage');
       this.backend = new LocalStorageBackend(baseDir);
     }

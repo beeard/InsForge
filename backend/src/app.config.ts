@@ -17,13 +17,9 @@ export interface AppConfig {
   };
   cloud: {
     storageBucket: string;
-    instanceProfile: string;
     apiHost: string;
     projectId: string;
     appKey: string;
-    cloudFrontUrl: string;
-    cloudFrontKeyPairId: string;
-    cloudFrontPrivateKey: string;
   };
 }
 
@@ -42,13 +38,9 @@ export const config: AppConfig = {
     databaseName: process.env.POSTGRES_NAME || 'insforge',
   },
   cloud: {
-    storageBucket: process.env.AWS_S3_BUCKET || 'insforge-test-bucket',
-    instanceProfile: process.env.AWS_INSTANCE_PROFILE_NAME || 'insforge-instance-profile',
+    storageBucket: process.env.STORAGE_BUCKET || '',
     apiHost: process.env.CLOUD_API_HOST || 'https://api.insforge.dev',
     projectId: process.env.PROJECT_ID || 'local',
     appKey: process.env.APP_KEY || 'default-app-key',
-    cloudFrontUrl: process.env.AWS_CLOUDFRONT_URL || '',
-    cloudFrontKeyPairId: process.env.AWS_CLOUDFRONT_KEY_PAIR_ID || '',
-    cloudFrontPrivateKey: process.env.AWS_CLOUDFRONT_PRIVATE_KEY || '',
   },
 };
