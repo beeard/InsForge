@@ -32,7 +32,7 @@ services:
       # POSTGRES_USER: ${POSTGRES_USER:-postgres}
       # POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       # POSTGRES_DB: ${POSTGRES_DB:-insforge}
-      PGRST_DB_URI: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-insforge}
+      PGRST_DB_URI: postgres://${POSTGRES_USERNAME:-${POSTGRES_USER:-postgres}}:${POSTGRES_PASSWORD:-postgres}@${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/${POSTGRES_NAME:-${POSTGRES_DB:-insforge}}
       PGRST_OPENAPI_SERVER_PROXY_URI: http://localhost:3000
       PGRST_DB_SCHEMA: public
       PGRST_DB_ANON_ROLE: anon
@@ -69,13 +69,13 @@ services:
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-change-this-password}
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
-      # PostgreSQL connection
-      - POSTGRES_HOST=postgres
-      - POSTGRES_PORT=5432
-      - POSTGRES_DB=${POSTGRES_DB:-insforge}
-      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      # PostgreSQL connection (backend uses different var names)
+      - POSTGRES_HOST=${POSTGRES_HOST:-postgres}
+      - POSTGRES_PORT=${POSTGRES_PORT:-5432}
+      - POSTGRES_USERNAME=${POSTGRES_USERNAME:-${POSTGRES_USER:-postgres}}
+      - POSTGRES_NAME=${POSTGRES_NAME:-${POSTGRES_DB:-insforge}}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-insforge}
+      - DATABASE_URL=postgresql://${POSTGRES_USERNAME:-${POSTGRES_USER:-postgres}}:${POSTGRES_PASSWORD:-postgres}@${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/${POSTGRES_NAME:-${POSTGRES_DB:-insforge}}
       - POSTGREST_BASE_URL=http://postgrest:3000
       # Deno Runtime URL for serverless functions
       - DENO_RUNTIME_URL=http://deno:7133
@@ -139,11 +139,11 @@ services:
       - PORT=7133
       - DENO_ENV=${DENO_ENV:-development}
       - DENO_DIR=/deno-dir
-      # PostgreSQL connection
-      - POSTGRES_HOST=postgres
-      - POSTGRES_PORT=5432
-      - POSTGRES_DB=${POSTGRES_DB:-insforge}
-      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      # PostgreSQL connection (Deno uses same vars as docker postgres)
+      - POSTGRES_HOST=${POSTGRES_HOST:-postgres}
+      - POSTGRES_PORT=${POSTGRES_PORT:-5432}
+      - POSTGRES_DB=${POSTGRES_NAME:-${POSTGRES_DB:-insforge}}
+      - POSTGRES_USER=${POSTGRES_USERNAME:-${POSTGRES_USER:-postgres}}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
       - POSTGREST_BASE_URL=http://postgrest:3000
       # Worker timeout (30 seconds default)
